@@ -4,9 +4,6 @@ import time
 import numpy as np
 from copy import deepcopy
 
-import tensorflow as tf
-from tensorflow.python.ops.seq2seq import sequence_loss
-
 from utils import calculate_perplexity, get_dataset, Vocab
 from utils import ptb_iterator, sample
 
