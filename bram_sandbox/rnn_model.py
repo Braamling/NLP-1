@@ -1,8 +1,8 @@
 import sys
 import time
 
+import os
 import numpy as np
-from copy import deepcopy
 
 from utils import calculate_perplexity, get_dataset, Vocab
 from utils import ptb_iterator, sample
@@ -152,8 +152,9 @@ class RNNLM_Model():
             best_val_epoch = 0
 
             session.run(init)
-            
-            saver.restore(session, self.config.session_name)
+
+            if os.path.exists(self.config.session_name):
+                saver.restore(session, self.config.session_name)
             
             for epoch in xrange(self.config.max_epochs):
                 print 'Epoch {}'.format(epoch)
