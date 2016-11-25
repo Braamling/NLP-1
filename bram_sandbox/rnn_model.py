@@ -1,8 +1,8 @@
 import sys
 import time
 
+import os
 import numpy as np
-from copy import deepcopy
 
 from utils import calculate_perplexity, get_dataset, Vocab
 from utils import ptb_iterator, sample
@@ -127,14 +127,30 @@ class RNNLM_Model():
         with tf.variable_scope('RNN') as scope:
             self.initial_state = tf.zeros([self.config.batch_size, self.config.hidden_size])
             hidden_state = self.initial_state
+            cell_state = self.initial_state # TODO create unique initial cell state
             rnn_outputs = []
             for tstep,rnn_input in enumerate(inputs):
-                if tstep > 0: scope.reuse_variables()
-                H = tf.get_variable('H', [self.config.hidden_size, self.config.hidden_size]) # Wh
-                I = tf.get_variable('I', [self.config.embed_size, self.config.hidden_size]) # Wx
-                b1 = tf.get_variable('b1', [self.config.hidden_size])
+                if tstep > 0:
+                    scope.reuse_variables()
                 rnn_input = tf.nn.dropout(rnn_input, self.dropout_placeholder)
-                hidden_state = tf.nn.tanh( tf.matmul( rnn_input, I) + b1) + tf.nn.tanh(tf.matmul(hidden_state, H))
+                lstm_input = tf.concat(1, [rnn_input, hidden_state]) # Possibly use output instead of hidden_state?
+                F = tf.get_variable('F', [self.config.hidden_size + self.config.embed_size, self.config.hidden_size]) # Wf
+                I = tf.get_variable('I', [self.config.hidden_size + self.config.embed_size, self.config.hidden_size]) # Wi
+                J = tf.get_variable('J', [self.config.hidden_size + self.config.embed_size, self.config.hidden_size]) # Wj
+                O = tf.get_variable('O', [self.config.hidden_size + self.config.embed_size, self.config.hidden_size]) # Wo
+                bf = tf.get_variable('bf', [self.config.hidden_size])
+                bi = tf.get_variable('bi', [self.config.hidden_size])
+                bj = tf.get_variable('bj', [self.config.hidden_size])
+                bo = tf.get_variable('bo', [self.config.hidden_size])
+                # TODO Add dropout possibly
+                forget_g = tf.nn.sigmoid(tf.matmul(lstm_input, F)  + bf)
+                input_g = tf.nn.sigmoid(tf.matmul(lstm_input, I) + bi)
+                input_j_g = tf.nn.tanh(tf.matmul(lstm_input, J) + bj)
+                output_g = tf.nn.sigmoid(tf.matmul(lstm_input, O) + bo)
+                cell_state = tf.mul(cell_state, forget_g) + tf.mul(input_j_g, input_g)
+                hidden_state = tf.mul(tf.tanh(cell_state), output_g)
+
+                # hidden_state = tf.nn.tanh( tf.matmul( rnn_input, I) + b1) + tf.nn.tanh(tf.matmul(hidden_state, H))
                 output = tf.nn.dropout(hidden_state, self.dropout_placeholder)
                 rnn_outputs.append(output)
 
@@ -152,8 +168,9 @@ class RNNLM_Model():
             best_val_epoch = 0
 
             session.run(init)
-            
-            saver.restore(session, self.config.session_name)
+
+            if os.path.exists(self.config.session_name):
+                saver.restore(session, self.config.session_name)
             
             for epoch in xrange(self.config.max_epochs):
                 print 'Epoch {}'.format(epoch)
