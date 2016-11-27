@@ -13,7 +13,7 @@ Please set the
 
 class Config(object):
     # Train and/or generate the model when running the script
-    train = False
+    train = True
     generate = True
 
     # Learning parameters
@@ -27,16 +27,16 @@ class Config(object):
     lr = 0.005
 
     # Training data locations
-    encoded_train = 'data/recipes/1000.mmf'
-    encoded_valid = 'data/recipes/2000.mmf'
-    encoded_test = 'data/recipes/3000.mmf'
+    encoded_train = 'data/train.json'
+    encoded_valid = 'data/valid.json'
+    encoded_test = 'data/test.json'
 
     # All recipe data.
-    merged_data = 'data/recipes/merged.txt'
+    merged_data = 'data/recipes.json'
 
     # Session location and name for storing and loading stored model
-    session_name = 'ptb_rnnlm.weights'
-    store_location = './ptb_rnnlm.weights'
+    session_name = 'ptb_rnnlm_1.weights'
+    store_location = './ptb_rnnlm_1.weights'
 
 
 def main():
@@ -63,7 +63,7 @@ def main():
     if config.generate:
         generator = Text_Generator(gen_config, gen_model)
 
-        generator.generate_from("preheat")
+        generator.generate_from("preheat the oven to")
 
 
 if __name__=="__main__":

@@ -1,6 +1,7 @@
 from collections import defaultdict
 
 import numpy as np
+import json
 
 class Vocab(object):
     def __init__(self):
@@ -42,23 +43,21 @@ def calculate_perplexity(log_probs):
         perp += -p
     return np.exp(perp / len(log_probs))
 
-def get_ptb_dataset(dataset='train'):
-    fn = 'data/ptb/ptb.{}.txt'
-    for line in open(fn.format(dataset)):
-        for word in line.split():
-            yield word
-        # Add token to the end of the line
-        # Equivalent to <eos> in:
-        # https://github.com/wojzaremba/lstm/blob/master/data.lua#L32
-        # https://github.com/tensorflow/tensorflow/blob/master/tensorflow/models/rnn/ptb/reader.py#L31
-        yield '<eos>'
-
+# def get_dataset(fn):
+#     for line in open(fn):
+#         for word in line.split():
+#             yield word
+#         yield '<eos>'
 
 def get_dataset(fn):
-    for line in open(fn):
-        for word in line.split():
-            yield word
-        yield '<eos>'
+    with open(fn) as recipe_file:    
+        recipes = json.load(recipe_file)
+
+        for recipe in recipes:
+            for step in recipe:
+                for word in step['sentence'].split():
+                    yield word
+            yield '<endofrecipe>'
 
 
 def ptb_iterator(raw_data, batch_size, num_steps):
