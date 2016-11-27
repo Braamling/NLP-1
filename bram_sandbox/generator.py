@@ -61,7 +61,7 @@ class Text_Generator():
                 self.model.initial_state : state
             }
 
-            state, y_pred = session.run([model.final_state, model.predictions[-1]], feed_dict = feed_dict)
+            state, y_pred = session.run([self.model.final_state, self.model.predictions[-1]], feed_dict = feed_dict)
             #print y_pred.shape # (1, len(vocab)), so the shape of y_pred[0] is (len(vocab),)
             next_word_idx = sample(y_pred[0], temperature=temp)
             tokens.append(next_word_idx)
@@ -72,7 +72,7 @@ class Text_Generator():
         output = [self.model.vocab.decode(word_idx) for word_idx in tokens]
         return output
 
-    def generate_sentence(self, session, model, config, *args, **kwargs):
+    def generate_sentence(self, session, *args, **kwargs):
         """Convenice to generate a sentence from the model."""
-        return self.generate_text(session, model, config, *args, stop_tokens=['<endofrecipe>'], **kwargs)
+        return self.generate_text(session, *args, stop_tokens=['<endofrecipe>'], **kwargs)
 

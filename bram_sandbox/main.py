@@ -13,7 +13,7 @@ Please set the
 
 class Config(object):
     # Train and/or generate the model when running the script
-    train = True
+    train = False
     generate = True
 
     # Learning parameters
