@@ -6,21 +6,22 @@ import numpy as np
 
 from utils import calculate_perplexity, get_dataset, Vocab
 from utils import ptb_iterator, sample
-from NNmodel import Ing_nn_model
 import tensorflow as tf
 from tensorflow.python.ops.seq2seq import sequence_loss
 
 
 class RNNLM_Model():
 
-    def __init__(self, config):
+    def __init__(self, config, ):
         self.config = config
         
         self.load_data(debug=False)
         self.add_placeholders()
-        self.inputs = self.add_embedding()
-        self.rnn_outputs = self.add_model(self.inputs)
-        self.outputs = self.add_projection(self.rnn_outputs)
+        self.add_ing_nn()
+        rnn_inputs = self.add_embedding()
+        ingredient_input = self.add_ingredient_nn()
+        rnn_outputs = self.add_model(rnn_inputs, ingredient_input)
+        self.outputs = self.add_projection(rnn_outputs)
 
         self.predictions = [tf.nn.softmax(tf.cast(o, 'float64')) for o in self.outputs]
         output = tf.reshape(tf.concat(1, self.outputs), [-1,len(self.vocab)])
@@ -56,7 +57,19 @@ class RNNLM_Model():
         """
         self.input_placeholder = tf.placeholder(tf.int32, shape=[None, self.config.num_steps], name='Input')
         self.labels_placeholder = tf.placeholder(tf.int32, shape=[None, self.config.num_steps], name='Target')
+        self.ingredient_placeholder = tf.placeholder(tf.float32, [None, len()], name="Ingredient_Input") #TODO get length of ingredient vector
         self.dropout_placeholder = tf.placeholder(tf.float32, name='Dropout')
+
+    def add_ingredient_nn(self):
+        with tf.variable_scope('ingredient_nn') as scope:
+            W1 = tf.get_variable('ing_W1', [self.config.ingredient_hidden_size, len()]) #TODO get length of ingredient vector
+            b1 = tf.get_variable('ing_b1', [self.config.ingredient_hidden_size])
+            W2 = tf.get_variable('ing_W2', [self.config.ingredient_hidden_size, self.config.hidden_size]) #hidden_size is size of cell state
+            b2 = tf.get_variable('ing_b2', [self.config.hidden_size]) #hidden_size is size of cell state
+            hidden_layer = tf.nn.tanh(tf.matmul(self.ingredient_placeholder, W1) + b1)
+            output_ingredient_nn = tf.nn.tanh(tf.mathmul(hidden_layer, W2) + b2)
+            return output_ingredient_nn
+
 
     def add_embedding(self):
         """Add embedding layer.
@@ -111,49 +124,42 @@ class RNNLM_Model():
         tf.scalar_summary("cost", loss)
         opt = tf.train.AdamOptimizer(learning_rate=self.config.lr)
         global_step = tf.Variable(0, name='global_step', trainable=False)
-        train_op = opt.minimize(loss,global_step=global_step)
+        train_op = opt.minimize(loss, global_step=global_step)
         return train_op
 
-    def add_model(self, inputs):
+    def add_model(self, rnn_inputs, ingredient_input):
         """Creates the RNN LM model.
 
         Args:
-            inputs: List of length num_steps, each of whose elements should be
+            rnn_inputs: List of length num_steps, each of whose elements should be
                             a tensor of shape (batch_size, embed_size).
         Returns:
             outputs: List of length num_steps, each of whose elements should be
                              a tensor of shape (batch_size, hidden_size)
         """
         with tf.variable_scope('RNN') as scope:
-            ing_size = 3
-            n_hidden_neurons = 4
-            nn_mdl = Ing_nn_model(ing_size, self.config.hidden_size, n_hidden_neurons)
             self.initial_state = tf.zeros([self.config.batch_size, self.config.hidden_size])
             hidden_state = self.initial_state
-            cell_state = nn_mdl.y
+            cell_state = ingredient_input
             rnn_outputs = []
-            for tstep,rnn_input in enumerate(inputs):
+            for tstep, rnn_input in enumerate(rnn_inputs):
                 if tstep > 0:
                     scope.reuse_variables()
                 rnn_input = tf.nn.dropout(rnn_input, self.dropout_placeholder)
                 lstm_input = tf.concat(1, [rnn_input, hidden_state]) # Possibly use output instead of hidden_state?
-                F = tf.get_variable('F', [self.config.hidden_size + self.config.embed_size, self.config.hidden_size]) # Wf
-                I = tf.get_variable('I', [self.config.hidden_size + self.config.embed_size, self.config.hidden_size]) # Wi
-                J = tf.get_variable('J', [self.config.hidden_size + self.config.embed_size, self.config.hidden_size]) # Wj
-                O = tf.get_variable('O', [self.config.hidden_size + self.config.embed_size, self.config.hidden_size]) # Wo
-                bf = tf.get_variable('bf', [self.config.hidden_size])
-                bi = tf.get_variable('bi', [self.config.hidden_size])
-                bj = tf.get_variable('bj', [self.config.hidden_size])
-                bo = tf.get_variable('bo', [self.config.hidden_size])
+
+                H = tf.get_variable('H', [self.config.hidden_size + self.config.embed_size, self.config.hidden_size * 4]) # Wf
+                b = tf.get_variable('b', [self.config.hidden_size * 4])
+                f, i, j, o = tf.split(1, 4, tf.mathmul(lstm_input, H) + b)
+
                 # TODO Add dropout possibly
-                forget_g = tf.nn.sigmoid(tf.matmul(lstm_input, F)  + bf)
-                input_g = tf.nn.sigmoid(tf.matmul(lstm_input, I) + bi)
-                input_j_g = tf.nn.tanh(tf.matmul(lstm_input, J) + bj)
-                output_g = tf.nn.sigmoid(tf.matmul(lstm_input, O) + bo)
+                forget_g = tf.nn.sigmoid(f)
+                input_g = tf.nn.sigmoid(i)
+                input_j_g = tf.nn.tanh(j)
+                output_g = tf.nn.sigmoid(o)
+
                 cell_state = tf.mul(cell_state, forget_g) + tf.mul(input_j_g, input_g)
                 hidden_state = tf.mul(tf.tanh(cell_state), output_g)
-
-                # hidden_state = tf.nn.tanh( tf.matmul( rnn_input, I) + b1) + tf.nn.tanh(tf.matmul(hidden_state, H))
                 output = tf.nn.dropout(hidden_state, self.dropout_placeholder)
                 rnn_outputs.append(output)
 
@@ -209,8 +215,7 @@ class RNNLM_Model():
 
         total_loss = []
         state = self.initial_state.eval()
-        for step, (x, y) in enumerate(
-            ptb_iterator(data, self.config.batch_size, self.config.num_steps)):
+        for step, (x, y) in enumerate(ptb_iterator(data, self.config.batch_size, self.config.num_steps)):
             # We need to pass in the initial state and retrieve the final state to give
             # the RNN proper history
             feed = {self.input_placeholder: x,

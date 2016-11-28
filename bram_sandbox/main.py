@@ -20,6 +20,7 @@ class Config(object):
     batch_size = 10
     embed_size = 5
     hidden_size = 50
+    ingredient_hidden_size = 30
     num_steps = 40
     max_epochs = 10
     early_stopping = 2
