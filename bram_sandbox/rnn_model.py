@@ -4,7 +4,7 @@ import time
 import os
 import numpy as np
 
-from utils import calculate_perplexity, get_dataset, Vocab
+from utils import calculate_perplexity, get_dataset, Vocab, load_pickle_to_dict
 from utils import ptb_iterator, sample
 from NNmodel import Ing_nn_model
 import tensorflow as tf
@@ -27,6 +27,8 @@ class RNNLM_Model():
         self.calculate_loss = self.add_loss_op(output)
         self.train_step = self.add_training_op(self.calculate_loss)
 
+        self.ingredients = load_pickle_to_dict(self.config.ingredients_data)
+
     def load_data(self, debug=False):
         """Loads starter word-vectors and train/dev/test data. """
         self.vocab = Vocab()
@@ -40,6 +42,9 @@ class RNNLM_Model():
         self.encoded_test = np.array(
                 [self.vocab.encode(word) for word in get_dataset(self.config.encoded_test)],
                 dtype=np.int32)
+
+
+
         if debug:
             num_debug = 1024*3
             self.encoded_train = self.encoded_train[:num_debug]

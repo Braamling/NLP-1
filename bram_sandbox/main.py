@@ -34,6 +34,9 @@ class Config(object):
     # All recipe data.
     merged_data = 'data/recipes.json'
 
+    # Ingredients data
+    ingredients_data = 'data/list_of_foods.p'
+
     # Session location and name for storing and loading stored model
     session_name = 'ptb_rnnlm_1.weights'
     store_location = './ptb_rnnlm_1.weights'
@@ -46,6 +49,7 @@ def main():
 
     # Set the batch size and step size of the generator model to 1
     gen_config.batch_size = gen_config.num_steps = 1
+
 
     # We create the training model and generative model
     with tf.variable_scope('RNNLM') as scope:

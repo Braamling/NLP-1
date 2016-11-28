@@ -2,6 +2,7 @@ from collections import defaultdict
 
 import numpy as np
 import json
+import pickle
 
 class Vocab(object):
     def __init__(self):
@@ -59,6 +60,8 @@ def get_dataset(fn):
                     yield word
             yield '<endofrecipe>'
 
+def load_pickle_to_dict(fn):
+    return pickle.load(open(fn, 'rb'))
 
 def ptb_iterator(raw_data, batch_size, num_steps):
     # Pulled from https://github.com/tensorflow/tensorflow/blob/master/tensorflow/models/rnn/ptb/reader.py#L82
