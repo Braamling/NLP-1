@@ -5,6 +5,7 @@ import tensorflow as tf
 from rnn_model import RNNLM_Model
 from generator import Text_Generator
 
+import json
 """
 Please set the 
 
@@ -40,6 +41,13 @@ class Config(object):
     # Session location and name for storing and loading stored model
     session_name = 'ptb_rnnlm_1.weights'
     store_location = './ptb_rnnlm_1.weights'
+
+    def __init__(self):
+        with open('config.json') as data_file:    
+            config = json.load(data_file)
+
+        self.session_name = config['session_name']
+        self.store_location = config['store_location']
 
 
 def main():

@@ -55,6 +55,7 @@ def get_dataset(fn):
         recipes = json.load(recipe_file)
 
         for recipe in recipes:
+            recipe = recipe['steps']
             for step in recipe:
                 for word in step['sentence'].split():
                     yield word
