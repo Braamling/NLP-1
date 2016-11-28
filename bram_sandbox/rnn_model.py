@@ -6,7 +6,7 @@ import numpy as np
 
 from utils import calculate_perplexity, get_dataset, Vocab
 from utils import ptb_iterator, sample
-
+from NNmodel import Ing_nn_model
 import tensorflow as tf
 from tensorflow.python.ops.seq2seq import sequence_loss
 
@@ -125,9 +125,12 @@ class RNNLM_Model():
                              a tensor of shape (batch_size, hidden_size)
         """
         with tf.variable_scope('RNN') as scope:
+            ing_size = 3
+            n_hidden_neurons = 4
+            nn_mdl = Ing_nn_model(ing_size, self.config.hidden_size, n_hidden_neurons)
             self.initial_state = tf.zeros([self.config.batch_size, self.config.hidden_size])
             hidden_state = self.initial_state
-            cell_state = self.initial_state # TODO create unique initial cell state
+            cell_state = nn_mdl.y
             rnn_outputs = []
             for tstep,rnn_input in enumerate(inputs):
                 if tstep > 0:
