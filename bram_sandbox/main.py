@@ -14,7 +14,7 @@ Please set the
 
 class Config(object):
     # Train and/or generate the model when running the script
-    train = False
+    train = True
     generate = True 
 
     # Learning parameters

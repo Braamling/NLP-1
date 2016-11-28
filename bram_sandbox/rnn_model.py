@@ -28,23 +28,23 @@ class RNNLM_Model():
         self.calculate_loss = self.add_loss_op(output)
         self.train_step = self.add_training_op(self.calculate_loss)
 
-        self.ingredients = load_pickle_to_dict(self.config.ingredients_data)
-
     def load_data(self, debug=False):
         """Loads starter word-vectors and train/dev/test data. """
         self.vocab = Vocab()
-        self.vocab.construct(get_dataset(self.config.merged_data))
+        self.vocab.construct(get_dataset(self.config.merged_data, 
+                                         self.config.ingredients_data))
         self.encoded_train = np.array(
-                [self.vocab.encode(word) for word in get_dataset(self.config.encoded_train)],
+                [self.vocab.encode(word) for word in get_dataset(self.config.encoded_train, 
+                                                                 self.config.ingredients_data)],
                 dtype=np.int32)
         self.encoded_valid = np.array(
-                [self.vocab.encode(word) for word in get_dataset(self.config.encoded_valid)],
+                [self.vocab.encode(word) for word in get_dataset(self.config.encoded_valid, 
+                                                                 self.config.ingredients_data)],
                 dtype=np.int32)
         self.encoded_test = np.array(
-                [self.vocab.encode(word) for word in get_dataset(self.config.encoded_test)],
+                [self.vocab.encode(word) for word in get_dataset(self.config.encoded_test, 
+                                                                 self.config.ingredients_data)],
                 dtype=np.int32)
-
-
 
         if debug:
             num_debug = 1024*3

@@ -44,17 +44,22 @@ def calculate_perplexity(log_probs):
         perp += -p
     return np.exp(perp / len(log_probs))
 
-# def get_dataset(fn):
-#     for line in open(fn):
-#         for word in line.split():
-#             yield word
-#         yield '<eos>'
+def get_multi_hot(ingredients, ingredient_list):
+    multi_hot = np.zeros(len(ingredient_list))
 
-def get_dataset(fn):
+    for ingredient in ingredients:
+        multi_hot[ingredient.values()[0]] = 0
+
+    return multi_hot
+
+def get_dataset(fn, dict_fn):
+    ingredient_list = load_pickle_to_dict(dict_fn)
+
     with open(fn) as recipe_file:    
         recipes = json.load(recipe_file)
 
         for recipe in recipes:
+            ingredient_multi_hot = get_multi_hot(recipe['ingredients'], ingredient_list)
             recipe = recipe['steps']
             for step in recipe:
                 for word in step['sentence'].split():
