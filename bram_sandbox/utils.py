@@ -62,10 +62,21 @@ def get_multi_hot(ingredients, ingredient_list):
 
 ]
 '''
+def get_ingredient_list_size(dict_fn):
+    return len(load_pickle_to_dict(dict_fn))    
 
+def get_words_from_dataset(fn):
+    with open(fn) as recipe_file:    
+        recipes = json.load(recipe_file)
 
+        for recipe in recipes:
+            recipe = recipe['steps']
+            for step in recipe:
+                for word in step['sentence'].split():
+                    yield word
+            yield '<endofrecipe>'
 
-def get_dataset(fn, dict_fn):
+def get_dataset(fn, dict_fn, vocab):
     ingredient_list = load_pickle_to_dict(dict_fn)
 
     with open(fn) as recipe_file:    
@@ -74,10 +85,17 @@ def get_dataset(fn, dict_fn):
         for recipe in recipes:
             ingredient_multi_hot = get_multi_hot(recipe['ingredients'], ingredient_list)
             recipe = recipe['steps']
-            for step in recipe:
-                for word in step['sentence'].split():
-                    yield word
-            yield '<endofrecipe>'
+
+            # Create one hot vectors for each word in the recipe 
+            recipe = np.array([vocab.encode(word) for word in yield_words(recipe)])
+
+            yield (ingredient_multi_hot, recipe)
+
+def yield_words(recipe):
+    for step in recipe:
+        for word in step['sentence'].split():
+            yield word
+        yield '<endofrecipe>'
 
 def load_pickle_to_dict(fn):
     return pickle.load(open(fn, 'rb'))
@@ -88,11 +106,14 @@ def ptb_iterator(raw_data, batch_size, num_steps):
     data_len = len(raw_data)
     batch_len = data_len // batch_size
     data = np.zeros([batch_size, batch_len], dtype=np.int32)
+
     for i in range(batch_size):
         data[i] = raw_data[batch_len * i:batch_len * (i + 1)]
     epoch_size = (batch_len - 1) // num_steps
+
     if epoch_size == 0:
         raise ValueError("epoch_size == 0, decrease batch_size or num_steps")
+
     for i in range(epoch_size):
         x = data[:, i * num_steps:(i + 1) * num_steps]
         y = data[:, i * num_steps + 1:(i + 1) * num_steps + 1]

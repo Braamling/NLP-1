@@ -5,7 +5,8 @@ import os
 import numpy as np
 
 from utils import calculate_perplexity, get_dataset, Vocab, load_pickle_to_dict
-from utils import ptb_iterator, sample
+from utils import ptb_iterator, sample, get_words_from_dataset
+from utils import get_ingredient_list_size
 import tensorflow as tf
 from tensorflow.python.ops.seq2seq import sequence_loss
 
@@ -17,7 +18,7 @@ class RNNLM_Model():
         
         self.load_data(debug=False)
         self.add_placeholders()
-        self.add_ing_nn()
+
         rnn_inputs = self.add_embedding()
         ingredient_input = self.add_ingredient_nn()
         rnn_outputs = self.add_model(rnn_inputs, ingredient_input)
@@ -31,20 +32,34 @@ class RNNLM_Model():
     def load_data(self, debug=False):
         """Loads starter word-vectors and train/dev/test data. """
         self.vocab = Vocab()
-        self.vocab.construct(get_dataset(self.config.merged_data, 
-                                         self.config.ingredients_data))
-        self.encoded_train = np.array(
-                [self.vocab.encode(word) for word in get_dataset(self.config.encoded_train, 
-                                                                 self.config.ingredients_data)],
-                dtype=np.int32)
-        self.encoded_valid = np.array(
-                [self.vocab.encode(word) for word in get_dataset(self.config.encoded_valid, 
-                                                                 self.config.ingredients_data)],
-                dtype=np.int32)
-        self.encoded_test = np.array(
-                [self.vocab.encode(word) for word in get_dataset(self.config.encoded_test, 
-                                                                 self.config.ingredients_data)],
-                dtype=np.int32)
+        self.vocab.construct(get_words_from_dataset(self.config.merged_data))
+        # self.encoded_train = np.array(
+        #         [self.vocab.encode(word) for word in get_dataset(self.config.encoded_train, 
+        #                                                          self.config.ingredients_data)],
+        #         dtype=np.int32)
+        # self.encoded_valid = np.array(
+        #         [self.vocab.encode(word) for word in get_dataset(self.config.encoded_valid, 
+        #                                                          self.config.ingredients_data)],
+        #         dtype=np.int32)
+        # self.encoded_test = np.array(
+        #         [self.vocab.encode(word) for word in get_dataset(self.config.encoded_test, 
+        #                                                          self.config.ingredients_data)],
+        #         dtype=np.int32)
+
+        self.encoded_train = [recipe for recipe in\
+                              get_dataset(self.config.encoded_train, 
+                                          self.config.ingredients_data,
+                                          self.vocab)]
+
+        self.encoded_valid = [recipe for recipe in\
+                              get_dataset(self.config.encoded_valid,
+                                          self.config.ingredients_data,
+                                          self.vocab)]
+
+        self.encoded_test = [recipe for recipe in\
+                              get_dataset(self.config.encoded_test,
+                                          self.config.ingredients_data,
+                                          self.vocab)]
 
         if debug:
             num_debug = 1024*3
@@ -62,12 +77,12 @@ class RNNLM_Model():
         """
         self.input_placeholder = tf.placeholder(tf.int32, shape=[None, self.config.num_steps], name='Input')
         self.labels_placeholder = tf.placeholder(tf.int32, shape=[None, self.config.num_steps], name='Target')
-        self.ingredient_placeholder = tf.placeholder(tf.float32, [None, len()], name="Ingredient_Input") #TODO get length of ingredient vector
+        self.ingredient_placeholder = tf.placeholder(tf.float32, [None, get_ingredient_list_size(self.config.ingredients_data)], name="Ingredient_Input") #TODO get length of ingredient vector
         self.dropout_placeholder = tf.placeholder(tf.float32, name='Dropout')
 
     def add_ingredient_nn(self):
         with tf.variable_scope('ingredient_nn') as scope:
-            W1 = tf.get_variable('ing_W1', [self.config.ingredient_hidden_size, len()]) #TODO get length of ingredient vector
+            W1 = tf.get_variable('ing_W1', [self.config.ingredient_hidden_size,  get_ingredient_list_size(self.config.ingredients_data)]) #TODO get length of ingredient vector
             b1 = tf.get_variable('ing_b1', [self.config.ingredient_hidden_size])
             W2 = tf.get_variable('ing_W2', [self.config.ingredient_hidden_size, self.config.hidden_size]) #hidden_size is size of cell state
             b2 = tf.get_variable('ing_b2', [self.config.hidden_size]) #hidden_size is size of cell state
@@ -220,11 +235,12 @@ class RNNLM_Model():
 
         total_loss = []
         state = self.initial_state.eval()
-        for step, (x, y) in enumerate(ptb_iterator(data, self.config.batch_size, self.config.num_steps)):
+        for step, (x, y, z) in enumerate(ptb_iterator(data, self.config.batch_size, self.config.num_steps)):
             # We need to pass in the initial state and retrieve the final state to give
             # the RNN proper history
             feed = {self.input_placeholder: x,
                     self.labels_placeholder: y,
+                    self.ingredient_placeholder: z,
                     self.initial_state: state,
                     self.dropout_placeholder: dp}
             loss, state, _ = session.run(
