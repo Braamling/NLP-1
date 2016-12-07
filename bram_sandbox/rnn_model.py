@@ -21,7 +21,7 @@ class RNNLM_Model():
 
         rnn_inputs = self.add_embedding()
         ingredient_input = self.add_ingredient_nn()
-        rnn_outputs = self.add_model(rnn_inputs, ingredient_input)
+        rnn_outputs = self.add_rnn_model(rnn_inputs, ingredient_input)
         self.outputs = self.add_projection(rnn_outputs)
 
         self.predictions = [tf.nn.softmax(tf.cast(o, 'float64')) for o in self.outputs]
@@ -100,8 +100,8 @@ class RNNLM_Model():
         # The embedding lookup is currently only implemented for the CPU
         with tf.device('/cpu:0'):
             embedding = tf.get_variable('Embedding', [len(self.vocab), self.config.embed_size])
-            inputs = tf.nn.embedding_lookup(embedding, self.input_placeholder) # (data_size, num_steps, embed_size)
-            inputs = [tf.squeeze(x,[1]) for x in tf.split(1, self.config.num_steps, inputs)] # Each element is (data_size, embed_size).
+            inputs = tf.nn.embedding_lookup(embedding, self.input_placeholder) # (batch_size, num_steps, embed_size)
+            inputs = [tf.squeeze(x,[1]) for x in tf.split(1, self.config.num_steps, inputs)] # Each element is (batch_size, embed_size).
             return inputs
 
     def add_projection(self, rnn_outputs):
@@ -147,7 +147,7 @@ class RNNLM_Model():
         train_op = opt.minimize(loss, global_step=global_step)
         return train_op
 
-    def add_model(self, rnn_inputs, ingredient_input):
+    def add_rnn_model(self, rnn_inputs, ingredient_input):
         """Creates the RNN LM model.
 
         Args:
@@ -231,7 +231,16 @@ class RNNLM_Model():
             train_op = tf.no_op()
             dp = 1
 
-        total_steps = sum(1 for x in ptb_iterator(data, self.config.batch_size, self.config.num_steps))
+
+        recipe_batch = [] #TODO bram's functie
+        max_number_of_sequences = max([len(recipe.)])
+
+        state = self.initial_state.eval()
+
+
+
+
+        # total_steps = sum(1 for x in ptb_iterator(data, self.config.batch_size, self.config.num_steps))
 
         total_loss = []
         state = self.initial_state.eval()
@@ -254,3 +263,4 @@ class RNNLM_Model():
             sys.stdout.write('\r')
 
         return np.exp(np.mean(total_loss))
+
