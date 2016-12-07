@@ -13,7 +13,7 @@ from tensorflow.python.ops.seq2seq import sequence_loss
 
 class RNNLM_Model():
 
-    def __init__(self, config, ):
+    def __init__(self, config ):
         self.config = config
         
         self.load_data(debug=False)
@@ -34,16 +34,13 @@ class RNNLM_Model():
         self.vocab = Vocab()
         self.vocab.construct(get_words_from_dataset(self.config.merged_data))
         # self.encoded_train = np.array(
-        #         [self.vocab.encode(word) for word in get_dataset(self.config.encoded_train, 
-        #                                                          self.config.ingredients_data)],
+        #         [self.vocab.encode(word) for word in get_words_from_dataset(self.config.encoded_train)],
         #         dtype=np.int32)
         # self.encoded_valid = np.array(
-        #         [self.vocab.encode(word) for word in get_dataset(self.config.encoded_valid, 
-        #                                                          self.config.ingredients_data)],
+        #         [self.vocab.encode(word) for word in get_words_from_dataset(self.config.encoded_valid)],
         #         dtype=np.int32)
         # self.encoded_test = np.array(
-        #         [self.vocab.encode(word) for word in get_dataset(self.config.encoded_test, 
-        #                                                          self.config.ingredients_data)],
+        #         [self.vocab.encode(word) for word in get_words_from_dataset(self.config.encoded_test)],
         #         dtype=np.int32)
 
         self.encoded_train = [recipe for recipe in\
@@ -82,12 +79,13 @@ class RNNLM_Model():
 
     def add_ingredient_nn(self):
         with tf.variable_scope('ingredient_nn') as scope:
-            W1 = tf.get_variable('ing_W1', [self.config.ingredient_hidden_size,  get_ingredient_list_size(self.config.ingredients_data)]) #TODO get length of ingredient vector
+            # TODO check these multiplications
+            W1 = tf.get_variable('ing_W1', [get_ingredient_list_size(self.config.ingredients_data), self.config.ingredient_hidden_size]) #TODO get length of ingredient vector
             b1 = tf.get_variable('ing_b1', [self.config.ingredient_hidden_size])
             W2 = tf.get_variable('ing_W2', [self.config.ingredient_hidden_size, self.config.hidden_size]) #hidden_size is size of cell state
             b2 = tf.get_variable('ing_b2', [self.config.hidden_size]) #hidden_size is size of cell state
             hidden_layer = tf.nn.tanh(tf.matmul(self.ingredient_placeholder, W1) + b1)
-            output_ingredient_nn = tf.nn.tanh(tf.mathmul(hidden_layer, W2) + b2)
+            output_ingredient_nn = tf.nn.tanh(tf.matmul(hidden_layer, W2) + b2)
             return output_ingredient_nn
 
 
@@ -170,7 +168,7 @@ class RNNLM_Model():
 
                 H = tf.get_variable('H', [self.config.hidden_size + self.config.embed_size, self.config.hidden_size * 4]) # Wf
                 b = tf.get_variable('b', [self.config.hidden_size * 4])
-                f, i, j, o = tf.split(1, 4, tf.mathmul(lstm_input, H) + b)
+                f, i, j, o = tf.split(1, 4, tf.matmul(lstm_input, H) + b)
 
                 # TODO Add dropout possibly
                 forget_g = tf.nn.sigmoid(f)
@@ -235,12 +233,12 @@ class RNNLM_Model():
 
         total_loss = []
         state = self.initial_state.eval()
-        for step, (x, y, z) in enumerate(ptb_iterator(data, self.config.batch_size, self.config.num_steps)):
+        for step, (x, y) in enumerate(ptb_iterator(data, self.config.batch_size, self.config.num_steps)):
             # We need to pass in the initial state and retrieve the final state to give
             # the RNN proper history
             feed = {self.input_placeholder: x,
                     self.labels_placeholder: y,
-                    self.ingredient_placeholder: z,
+                    # self.ingredient_placeholder: z,
                     self.initial_state: state,
                     self.dropout_placeholder: dp}
             loss, state, _ = session.run(

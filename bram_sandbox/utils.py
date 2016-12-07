@@ -89,7 +89,7 @@ def get_dataset(fn, dict_fn, vocab):
             # Create one hot vectors for each word in the recipe 
             recipe = np.array([vocab.encode(word) for word in yield_words(recipe)])
 
-            yield (ingredient_multi_hot, recipe)
+            yield Recipe(ingredient_multi_hot, recipe)
 
 def yield_words(recipe):
     for step in recipe:
@@ -100,20 +100,39 @@ def yield_words(recipe):
 def load_pickle_to_dict(fn):
     return pickle.load(open(fn, 'rb'))
 
+def recipe_iterator(recipes, batch_size, num_steps):
+    len(recipes) 
+
 def ptb_iterator(raw_data, batch_size, num_steps):
     # Pulled from https://github.com/tensorflow/tensorflow/blob/master/tensorflow/models/rnn/ptb/reader.py#L82
+    
+
+    # for recipe in raw
+    # Create an numpy array of the complete list of words
     raw_data = np.array(raw_data, dtype=np.int32)
+
+    # Get data length
     data_len = len(raw_data)
-    batch_len = data_len // batch_size
-    data = np.zeros([batch_size, batch_len], dtype=np.int32)
 
+    # Get the amount of batches needed
+    num_batches = data_len // batch_size
+
+    # Create a placeholder with a row for each batch
+    data = np.zeros([batch_size, num_batches], dtype=np.int32)
+
+
+    # Fill the placeholder with all batches. 
     for i in range(batch_size):
-        data[i] = raw_data[batch_len * i:batch_len * (i + 1)]
-    epoch_size = (batch_len - 1) // num_steps
+        data[i] = raw_data[num_batches * i:num_batches * (i + 1)]
+    epoch_size = (num_batches - 1) // num_steps
 
+
+
+    # Just crash because stupid
     if epoch_size == 0:
         raise ValueError("epoch_size == 0, decrease batch_size or num_steps")
 
+    # Retrieve each set of batches
     for i in range(epoch_size):
         x = data[:, i * num_steps:(i + 1) * num_steps]
         y = data[:, i * num_steps + 1:(i + 1) * num_steps + 1]
@@ -125,3 +144,21 @@ def sample(a, temperature=1.0):
         a = np.log(a) / temperature
         a = np.exp(a) / np.sum(np.exp(a))
         return np.argmax(np.random.multinomial(1, a, 1))
+
+
+class Recipe():
+
+    def __init__(self, multihot, words):
+        self.multihot = multihot
+        self.words = words
+
+    def get_multihot(self):
+        return self.multihot
+
+    def create_sequences(self, number_of_steps):
+        padding_size = number_of_steps - (len(self.words) % number_of_steps)
+
+        words = np.concatenate((self.words, np.zeros([padding_size + 1])), axis=0)
+
+        self.sequences_x = np.split(words[:-1], number_of_steps)
+        self.sequences_y = np.split(words[1:], number_of_steps)
