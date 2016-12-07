@@ -13,16 +13,16 @@ Please set the
 
 class Config(object):
     # Train and/or generate the model when running the script
-    train = False
-    generate = True 
+    train = True
+    generate = False
 
     # Learning parameters
     batch_size = 10
     embed_size = 5
     hidden_size = 50
     num_steps = 40
-    max_epochs = 10
-    early_stopping = 2
+    max_epochs = 100
+    early_stopping = 3
     dropout = 0.9
     lr = 0.005
 

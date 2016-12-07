@@ -129,8 +129,9 @@ class RNNLM_Model():
             n_hidden_neurons = 4
             nn_mdl = Ing_nn_model(ing_size, self.config.hidden_size, n_hidden_neurons)
             self.initial_state = tf.zeros([self.config.batch_size, self.config.hidden_size])
+            self.initial_cell_state = tf.zeros([self.config.batch_size, self.config.hidden_size])
             hidden_state = self.initial_state
-            cell_state = nn_mdl.y
+            cell_state = self.initial_cell_state
             rnn_outputs = []
             for tstep,rnn_input in enumerate(inputs):
                 if tstep > 0:
@@ -158,7 +159,7 @@ class RNNLM_Model():
                 rnn_outputs.append(output)
 
         self.final_state = rnn_outputs[-1]
-
+        self.final_cell_state = cell_state
         return rnn_outputs
 
 
@@ -208,17 +209,20 @@ class RNNLM_Model():
         total_steps = sum(1 for x in ptb_iterator(data, self.config.batch_size, self.config.num_steps))
 
         total_loss = []
-        state = self.initial_state.eval()
+        state = self.initial_state.eval() # TODO change this when you add ingredients embedding
+        cell_state = self.initial_state.eval()
         for step, (x, y) in enumerate(
             ptb_iterator(data, self.config.batch_size, self.config.num_steps)):
+
             # We need to pass in the initial state and retrieve the final state to give
             # the RNN proper history
             feed = {self.input_placeholder: x,
                     self.labels_placeholder: y,
                     self.initial_state: state,
+                    self.initial_cell_state: cell_state,
                     self.dropout_placeholder: dp}
-            loss, state, _ = session.run(
-                    [self.calculate_loss, self.final_state, train_op], feed_dict=feed)
+            loss, state, cell_state, _ = session.run(
+                    [self.calculate_loss, self.final_state, self.final_cell_state, train_op], feed_dict=feed)
             total_loss.append(loss)
             if verbose and step % verbose == 0:
                     sys.stdout.write('\r{} / {} : pp = {}'.format(
