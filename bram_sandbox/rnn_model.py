@@ -5,7 +5,7 @@ import os
 import numpy as np
 
 from utils import calculate_perplexity, get_dataset, Vocab, load_pickle_to_dict
-from utils import ptb_iterator, sample, get_words_from_dataset
+from utils import sample, get_words_from_dataset, recipe_iterator
 from utils import get_ingredient_list_size
 import tensorflow as tf
 from tensorflow.python.ops.seq2seq import sequence_loss
@@ -43,20 +43,27 @@ class RNNLM_Model():
         #         [self.vocab.encode(word) for word in get_words_from_dataset(self.config.encoded_test)],
         #         dtype=np.int32)
 
+
         self.encoded_train = [recipe for recipe in\
                               get_dataset(self.config.encoded_train, 
                                           self.config.ingredients_data,
-                                          self.vocab)]
+                                          self.vocab,
+                                          self.config.num_steps,
+                                          self.config.batch_size)]
 
         self.encoded_valid = [recipe for recipe in\
                               get_dataset(self.config.encoded_valid,
                                           self.config.ingredients_data,
-                                          self.vocab)]
+                                          self.vocab,
+                                          self.config.num_steps,
+                                          self.config.batch_size)]
 
         self.encoded_test = [recipe for recipe in\
                               get_dataset(self.config.encoded_test,
                                           self.config.ingredients_data,
-                                          self.vocab)]
+                                          self.vocab,
+                                          self.config.num_steps,
+                                          self.config.batch_size)]
 
         if debug:
             num_debug = 1024*3
@@ -238,11 +245,11 @@ class RNNLM_Model():
 
 
 
-        # total_steps = sum(1 for x in ptb_iterator(data, self.config.batch_size, self.config.num_steps))
+        # total_steps = sum(1 for x in ptb_iterator(data, self.config.batch_size, self.config.num_steps)
 
         total_loss = []
         state = self.initial_state.eval()
-        for step, (x, y) in enumerate(ptb_iterator(data, self.config.batch_size, self.config.num_steps)):
+        for step, batch in enumerate(data):
             # We need to pass in the initial state and retrieve the final state to give
             # the RNN proper history
             feed = {self.input_placeholder: x,

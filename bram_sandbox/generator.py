@@ -5,7 +5,7 @@ import numpy as np
 from copy import deepcopy
 
 from utils import calculate_perplexity, get_dataset, Vocab
-from utils import ptb_iterator, sample
+from utils import sample
 
 import tensorflow as tf
 from tensorflow.python.ops.seq2seq import sequence_loss
