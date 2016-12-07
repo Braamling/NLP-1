@@ -52,6 +52,19 @@ def get_multi_hot(ingredients, ingredient_list):
 
     return multi_hot
 
+
+'''
+[
+    recipe {
+        ingredients: []
+        steps: [{sentence: line1, "...": "..." }, {sentence: line1}, {sentence: line1}]
+    }
+
+]
+'''
+
+
+
 def get_dataset(fn, dict_fn):
     ingredient_list = load_pickle_to_dict(dict_fn)
 
