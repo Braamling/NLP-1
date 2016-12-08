@@ -37,6 +37,99 @@ class Vocab(object):
     def __len__(self):
         return len(self.word_freq)
 
+class Recipe():
+    def __init__(self, number_of_steps, multihot=None, words=None):
+        if multihot is None:
+            self.sequences_x = []
+            self.sequences_y = []
+        else:
+            self.multihot = multihot
+            self.words = words
+            self.number_of_steps = number_of_steps
+            self.create_sequences(number_of_steps)
+
+    """
+    Get the multihot ingredient list of this recipe
+    """
+    def get_multihot(self):
+        return self.multihot
+
+    """
+    Create the sequences of length "number_of_steps" and pad the last one with
+    zeros
+    """
+    def create_sequences(self, number_of_steps):
+        padding_size = number_of_steps - (len(self.words) % number_of_steps)
+
+        words = np.concatenate((self.words, np.zeros([padding_size + 1])), axis=0)
+
+        # Create two sequences with a 1 index difference
+        self.sequences_x = np.split(words[:-1], number_of_steps)
+        self.sequences_y = np.split(words[1:], number_of_steps)
+
+    """
+    Get the actual amount of sequences of length "number_of_steps" of this recipe
+    """
+    def get_sequences_amount(self):
+        return len(self.sequences_y)
+
+
+    """
+    Get the sequence x and y on position i. two zero arrays of length 
+    "number_of_steps" is returned if the index is out of range.
+    """
+    def get_sequence_i(self, index):
+        if index >= (self.sequences_x):
+            return np.zeros(number_of_steps), np.zeros(number_of_steps)
+        else:
+            return self.sequences_x[index], self.sequences_y[index]
+
+class RecipeBatch():
+    """
+    A recipe batch consists of N Recipe object that can be used for iteration.
+    """
+
+    def __init__(self, recipes):
+        self.recipes = recipes
+        self.max_seq = 0
+
+        # Find the histest amount of sequences in the batch.
+        for recipe in recipes:
+            if recipe.get_sequences_amount() > self.max_seq:
+                self.max_seq = recipe.get_sequences_amount()
+
+    """
+    Retrieve a tupel with two all x and y sequences of this batch
+    """
+    def get_all_sequence_i(self, index):
+        batch_x = []
+        batch_y = []
+
+        for recipe in recipes:
+            x, y = recipe.get_sequence_i(index)
+            batch_x.append(x)
+            batch_y.append(y)
+        
+        return (batch_x, batch_y)
+
+    """
+    Retrieve an array with all multihots of all sequences in this batch
+    """
+    def get_all_multihots(self):
+        multihots = []
+
+        for recipe in recipes:
+            multihots.append(recipe.get_multihot())
+
+        return multihots
+
+    """
+    Get the largest sequence size in this batch
+    """
+    def get_max_sequence_size(self):
+        return self.max_seq
+
+
 def calculate_perplexity(log_probs):
     # https://web.stanford.edu/class/cs124/lec/languagemodeling.pdf
     perp = 0
@@ -44,27 +137,24 @@ def calculate_perplexity(log_probs):
         perp += -p
     return np.exp(perp / len(log_probs))
 
+"""
+Return a multihot list based on the ingredient_list of a recipe
+"""
 def get_multi_hot(ingredients, ingredient_list):
     multi_hot = np.zeros(len(ingredient_list))
 
+    # Set all the multihot indecies to 1 of existing ingredients.
     for ingredient in ingredients:
-        multi_hot[ingredient.values()[0]] = 0
+        multi_hot[ingredient.values()[0]] = 1
 
     return multi_hot
 
-
-'''
-[
-    recipe {
-        ingredients: []
-        steps: [{sentence: line1, "...": "..." }, {sentence: line1}, {sentence: line1}]
-    }
-
-]
-'''
 def get_ingredient_list_size(dict_fn):
     return len(load_pickle_to_dict(dict_fn))    
 
+"""
+Yield all words in a dataset
+"""
 def get_words_from_dataset(fn):
     with open(fn) as recipe_file:    
         recipes = json.load(recipe_file)
@@ -76,67 +166,59 @@ def get_words_from_dataset(fn):
                     yield word
             yield '<endofrecipe>'
 
-def get_dataset(fn, dict_fn, vocab):
+"""
+Retrieve that dataset as a list of Recipe batches.
+"""
+def get_dataset(fn, dict_fn, vocab, number_of_steps, batch_size):
     ingredient_list = load_pickle_to_dict(dict_fn)
-
+    recipes = []
     with open(fn) as recipe_file:    
-        recipes = json.load(recipe_file)
+        recipes_json = json.load(recipe_file)
 
-        for recipe in recipes:
+        # Create a recipe object for each recipe.
+        for recipe in recipes_json:
             ingredient_multi_hot = get_multi_hot(recipe['ingredients'], ingredient_list)
-            recipe = recipe['steps']
 
             # Create one hot vectors for each word in the recipe 
-            recipe = np.array([vocab.encode(word) for word in yield_words(recipe)])
+            recipe = [vocab.encode(word) for word in yield_words(recipe['steps'])]
+            recipe = np.array(recipe)
+            recipes.append(Recipe(number_of_steps, ingredient_multi_hot, recipe))
 
-            yield Recipe(ingredient_multi_hot, recipe)
+    # Create batches of recipes to later iterate
+    recipe_batches = [batch for batch in
+                      recipe_iterator(recipes, batch_size, number_of_steps)]
 
+    return recipe_batches
+
+"""
+Iterate over all given recipes and yield batches of recipes in a RecipeBatch object
+"""
+def recipe_iterator(recipes, batch_size, number_of_steps):
+    padding_size = batch_size - (len(recipes) % batch_size)
+
+    # pad the recipes with empty recipes
+    for i in range(padding_size):
+        recipes.append(Recipe(number_of_steps))
+    
+    # Create batches for each set of reripces
+    for recipes in np.split(np.asarray(recipes), batch_size):
+        yield RecipeBatch(recipes)
+
+"""
+Yield all the words in a recipe into a single sequence.
+"""
 def yield_words(recipe):
     for step in recipe:
         for word in step['sentence'].split():
             yield word
         yield '<endofrecipe>'
 
+"""
+Load a pickle file in dict form into memory
+"""
 def load_pickle_to_dict(fn):
     return pickle.load(open(fn, 'rb'))
 
-def recipe_iterator(recipes, batch_size, num_steps):
-    len(recipes) 
-
-def ptb_iterator(raw_data, batch_size, num_steps):
-    # Pulled from https://github.com/tensorflow/tensorflow/blob/master/tensorflow/models/rnn/ptb/reader.py#L82
-    
-
-    # for recipe in raw
-    # Create an numpy array of the complete list of words
-    raw_data = np.array(raw_data, dtype=np.int32)
-
-    # Get data length
-    data_len = len(raw_data)
-
-    # Get the amount of batches needed
-    num_batches = data_len // batch_size
-
-    # Create a placeholder with a row for each batch
-    data = np.zeros([batch_size, num_batches], dtype=np.int32)
-
-
-    # Fill the placeholder with all batches. 
-    for i in range(batch_size):
-        data[i] = raw_data[num_batches * i:num_batches * (i + 1)]
-    epoch_size = (num_batches - 1) // num_steps
-
-
-
-    # Just crash because stupid
-    if epoch_size == 0:
-        raise ValueError("epoch_size == 0, decrease batch_size or num_steps")
-
-    # Retrieve each set of batches
-    for i in range(epoch_size):
-        x = data[:, i * num_steps:(i + 1) * num_steps]
-        y = data[:, i * num_steps + 1:(i + 1) * num_steps + 1]
-        yield (x, y)
 
 def sample(a, temperature=1.0):
         # helper function to sample an index from a probability array
@@ -146,20 +228,3 @@ def sample(a, temperature=1.0):
         return np.argmax(np.random.multinomial(1, a, 1))
 
 
-class Recipe():
-
-    def __init__(self, multihot, words):
-        self.multihot = multihot
-        self.words = words
-
-
-    def get_multihot(self):
-        return self.multihot
-
-    def create_sequences(self, number_of_steps):
-        padding_size = number_of_steps - (len(self.words) % number_of_steps)
-
-        words = np.concatenate((self.words, np.zeros([padding_size + 1])), axis=0)
-
-        self.sequences_x = np.split(words[:-1], number_of_steps)
-        self.sequences_y = np.split(words[1:], number_of_steps)
