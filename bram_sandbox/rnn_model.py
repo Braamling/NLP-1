@@ -223,10 +223,10 @@ class RNNLM_Model():
 
                 print 'Total time: {}'.format(time.time() - start)
 
-    def run_epoch(self, session, data, train_op=None, verbose=10):
+    def run_epoch(self, session, recipe_batch_list, train_op=None, verbose=10):
 
         total_loss = []
-        for recipe_batch in get_recipe_batches(data): #TODO bram's functie
+        for recipe_batch in recipe_batch_list:
 
             cell_state = self.initial_cell_state.eval()
             dp = self.config.dropout
@@ -234,9 +234,10 @@ class RNNLM_Model():
                 train_op = tf.no_op()
                 dp = 1
 
-            for batch_step in recipe_batch.get_sequence_list_length:
-                feed = {self.rnn_input_placeholder: recipe_batch.get_all_sequence_i(batch_step)[0],
-                        self.rnn_labels_placeholder: recipe_batch.get_all_sequence_i(batch_step)[1],
+            for batch_step in range(recipe_batch.get_max_sequence_size()):
+                rnn_input_x, rnn_input_y = recipe_batch.get_all_sequence_i(batch_step)
+                feed = {self.rnn_input_placeholder: rnn_input_x,
+                        self.rnn_labels_placeholder: rnn_input_y,
                         self.ingredient_placeholder: recipe_batch.get_all_multihots(batch_step),
                         self.initial_cell_state: np.zeros((self.config.batch_size, self.config.hidden_size)) if batch_step == 0 else cell_state, #TODO try for understanding tf.zeros([self.config.batch_size, self.config.hidden_size])
                         self.dropout_placeholder: dp}
