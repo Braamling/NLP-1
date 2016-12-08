@@ -19,9 +19,11 @@ class RNNLM_Model():
         self.load_data(debug=False)
         self.add_placeholders()
 
+        self.initial_cell_state = tf.zeros([self.config.batch_size, self.config.hidden_size])
+
         rnn_inputs = self.add_embedding()
-        ingredient_input = self.add_ingredient_nn()
-        rnn_outputs = self.add_rnn_model(rnn_inputs, ingredient_input)
+        self.initial_hidden_state = self.add_ingredient_nn()
+        rnn_outputs = self.add_rnn_model(rnn_inputs)
         self.outputs = self.add_projection(rnn_outputs)
 
         self.predictions = [tf.nn.softmax(tf.cast(o, 'float64')) for o in self.outputs]
@@ -72,8 +74,8 @@ class RNNLM_Model():
         placeholder's shape, it's flexible
 
         """
-        self.input_placeholder = tf.placeholder(tf.int32, shape=[None, self.config.num_steps], name='Input')
-        self.labels_placeholder = tf.placeholder(tf.int32, shape=[None, self.config.num_steps], name='Target')
+        self.rnn_input_placeholder = tf.placeholder(tf.int32, shape=[None, self.config.num_steps], name='Input')
+        self.rnn_labels_placeholder = tf.placeholder(tf.int32, shape=[None, self.config.num_steps], name='Target')
         self.ingredient_placeholder = tf.placeholder(tf.float32, [None, get_ingredient_list_size(self.config.ingredients_data)], name="Ingredient_Input") #TODO get length of ingredient vector
         self.dropout_placeholder = tf.placeholder(tf.float32, name='Dropout')
 
@@ -98,7 +100,7 @@ class RNNLM_Model():
         # The embedding lookup is currently only implemented for the CPU
         with tf.device('/cpu:0'):
             embedding = tf.get_variable('Embedding', [len(self.vocab), self.config.embed_size])
-            inputs = tf.nn.embedding_lookup(embedding, self.input_placeholder) # (batch_size, num_steps, embed_size)
+            inputs = tf.nn.embedding_lookup(embedding, self.rnn_input_placeholder) # (batch_size, num_steps, embed_size)
             inputs = [tf.squeeze(x,[1]) for x in tf.split(1, self.config.num_steps, inputs)] # Each element is (batch_size, embed_size).
             return inputs
 
@@ -128,8 +130,8 @@ class RNNLM_Model():
         all_ones_weights = [tf.ones([self.config.batch_size * self.config.num_steps])]
         # output is logits
         loss = sequence_loss([output], \
-                [tf.reshape(self.labels_placeholder, [-1])],\
-                all_ones_weights) # , len(self.vocab)
+                             [tf.reshape(self.rnn_labels_placeholder, [-1])], \
+                             all_ones_weights) # , len(self.vocab)
         return loss
 
     def add_training_op(self, loss):
@@ -156,9 +158,8 @@ class RNNLM_Model():
                              a tensor of shape (batch_size, hidden_size)
         """
         with tf.variable_scope('RNN') as scope:
-            self.initial_state = tf.zeros([self.config.batch_size, self.config.hidden_size])
-            hidden_state = self.initial_state
-            cell_state = ingredient_input
+            hidden_state = self.initial_hidden_state
+            cell_state = self.initial_cell_state
             rnn_outputs = []
             for tstep, rnn_input in enumerate(rnn_inputs):
                 if tstep > 0:
@@ -181,7 +182,7 @@ class RNNLM_Model():
                 output = tf.nn.dropout(hidden_state, self.dropout_placeholder)
                 rnn_outputs.append(output)
 
-        self.final_state = rnn_outputs[-1]
+        self.final_cell_state = cell_state
 
         return rnn_outputs
 
@@ -204,8 +205,7 @@ class RNNLM_Model():
 
                 start = time.time()
                 
-                train_pp = self.run_epoch(session, self.encoded_train,
-                                           train_op=self.train_step)
+                train_pp = self.run_epoch(session, self.encoded_train, train_op=self.train_step)
                 valid_pp = self.run_epoch(session, self.encoded_valid)
 
                 print 'Training perplexity: {}'.format(train_pp)
@@ -224,41 +224,31 @@ class RNNLM_Model():
                 print 'Total time: {}'.format(time.time() - start)
 
     def run_epoch(self, session, data, train_op=None, verbose=10):
-        dp = self.config.dropout
-        if not train_op:
-            train_op = tf.no_op()
-            dp = 1
-
-
-        recipe_batch = [] #TODO bram's functie
-        max_number_of_sequences = max([len(recipe.)])
-
-        state = self.initial_state.eval()
-
-
-
-
-        # total_steps = sum(1 for x in ptb_iterator(data, self.config.batch_size, self.config.num_steps))
 
         total_loss = []
-        state = self.initial_state.eval()
-        for step, (x, y) in enumerate(ptb_iterator(data, self.config.batch_size, self.config.num_steps)):
-            # We need to pass in the initial state and retrieve the final state to give
-            # the RNN proper history
-            feed = {self.input_placeholder: x,
-                    self.labels_placeholder: y,
-                    # self.ingredient_placeholder: z,
-                    self.initial_state: state,
-                    self.dropout_placeholder: dp}
-            loss, state, _ = session.run(
-                    [self.calculate_loss, self.final_state, train_op], feed_dict=feed)
-            total_loss.append(loss)
-            if verbose and step % verbose == 0:
-                    sys.stdout.write('\r{} / {} : pp = {}'.format(
-                            step, total_steps, np.exp(np.mean(total_loss))))
-                    sys.stdout.flush()
-        if verbose:
-            sys.stdout.write('\r')
+        for recipe_batch in get_recipe_batches(data): #TODO bram's functie
+
+            cell_state = self.initial_cell_state.eval()
+            dp = self.config.dropout
+            if not train_op:
+                train_op = tf.no_op()
+                dp = 1
+
+            for batch_step in recipe_batch.get_sequence_list_length:
+                feed = {self.rnn_input_placeholder: recipe_batch.get_all_sequence_i(batch_step)[0],
+                        self.rnn_labels_placeholder: recipe_batch.get_all_sequence_i(batch_step)[1],
+                        self.ingredient_placeholder: recipe_batch.get_all_multihots(batch_step),
+                        self.initial_cell_state: np.zeros((self.config.batch_size, self.config.hidden_size)) if batch_step == 0 else cell_state, #TODO try for understanding tf.zeros([self.config.batch_size, self.config.hidden_size])
+                        self.dropout_placeholder: dp}
+                loss, cell_state, _ = session.run(
+                            [self.calculate_loss, self.final_cell_state, train_op], feed_dict=feed)
+                total_loss.append(loss)
+                if verbose and batch_step % verbose == 0:
+                   sys.stdout.write('\r{} / {} : pp = {}'.format(batch_step, recipe_batch.get_length, np.exp(np.mean(total_loss))))
+                   sys.stdout.flush()
+
+            if verbose:
+                sys.stdout.write('\r')
 
         return np.exp(np.mean(total_loss))
 

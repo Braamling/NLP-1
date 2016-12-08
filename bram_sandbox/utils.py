@@ -152,6 +152,7 @@ class Recipe():
         self.multihot = multihot
         self.words = words
 
+
     def get_multihot(self):
         return self.multihot
 
