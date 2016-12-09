@@ -5,7 +5,7 @@ import os
 import numpy as np
 
 from utils import calculate_perplexity, get_dataset, Vocab, load_pickle_to_dict
-from utils import ptb_iterator, sample, get_words_from_dataset
+from utils import sample, get_words_from_dataset
 from utils import get_ingredient_list_size
 import tensorflow as tf
 from tensorflow.python.ops.seq2seq import sequence_loss
@@ -35,30 +35,27 @@ class RNNLM_Model():
         """Loads starter word-vectors and train/dev/test data. """
         self.vocab = Vocab()
         self.vocab.construct(get_words_from_dataset(self.config.merged_data))
-        # self.encoded_train = np.array(
-        #         [self.vocab.encode(word) for word in get_words_from_dataset(self.config.encoded_train)],
-        #         dtype=np.int32)
-        # self.encoded_valid = np.array(
-        #         [self.vocab.encode(word) for word in get_words_from_dataset(self.config.encoded_valid)],
-        #         dtype=np.int32)
-        # self.encoded_test = np.array(
-        #         [self.vocab.encode(word) for word in get_words_from_dataset(self.config.encoded_test)],
-        #         dtype=np.int32)
 
         self.encoded_train = [recipe for recipe in\
                               get_dataset(self.config.encoded_train, 
                                           self.config.ingredients_data,
-                                          self.vocab)]
+                                          self.vocab,
+                                          self.config.num_steps,
+                                          self.config.batch_size)]
 
         self.encoded_valid = [recipe for recipe in\
                               get_dataset(self.config.encoded_valid,
                                           self.config.ingredients_data,
-                                          self.vocab)]
+                                          self.vocab,
+                                          self.config.num_steps,
+                                          self.config.batch_size)]
 
         self.encoded_test = [recipe for recipe in\
                               get_dataset(self.config.encoded_test,
                                           self.config.ingredients_data,
-                                          self.vocab)]
+                                          self.vocab,
+                                          self.config.num_steps,
+                                          self.config.batch_size)]
 
         if debug:
             num_debug = 1024*3
@@ -147,7 +144,7 @@ class RNNLM_Model():
         train_op = opt.minimize(loss, global_step=global_step)
         return train_op
 
-    def add_rnn_model(self, rnn_inputs, ingredient_input):
+    def add_rnn_model(self, rnn_inputs):
         """Creates the RNN LM model.
 
         Args:
@@ -236,16 +233,16 @@ class RNNLM_Model():
 
             for batch_step in range(recipe_batch.get_max_sequence_size()):
                 rnn_input_x, rnn_input_y = recipe_batch.get_all_sequence_i(batch_step)
-                feed = {self.rnn_input_placeholder: rnn_input_x,
-                        self.rnn_labels_placeholder: rnn_input_y,
-                        self.ingredient_placeholder: recipe_batch.get_all_multihots(batch_step),
+                feed = {self.rnn_input_placeholder: np.array(rnn_input_x),
+                        self.rnn_labels_placeholder: np.array(rnn_input_y),
+                        self.ingredient_placeholder: np.array(recipe_batch.get_all_multihots()),
                         self.initial_cell_state: np.zeros((self.config.batch_size, self.config.hidden_size)) if batch_step == 0 else cell_state, #TODO try for understanding tf.zeros([self.config.batch_size, self.config.hidden_size])
                         self.dropout_placeholder: dp}
                 loss, cell_state, _ = session.run(
                             [self.calculate_loss, self.final_cell_state, train_op], feed_dict=feed)
                 total_loss.append(loss)
                 if verbose and batch_step % verbose == 0:
-                   sys.stdout.write('\r{} / {} : pp = {}'.format(batch_step, recipe_batch.get_length, np.exp(np.mean(total_loss))))
+                   sys.stdout.write('\r{} / {} : pp = {}'.format(batch_step, recipe_batch.get_max_sequence_size(), np.exp(np.mean(total_loss))))
                    sys.stdout.flush()
 
             if verbose:

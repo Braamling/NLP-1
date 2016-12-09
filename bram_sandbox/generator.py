@@ -5,7 +5,7 @@ import numpy as np
 from copy import deepcopy
 
 from utils import calculate_perplexity, get_dataset, Vocab
-from utils import sample
+from utils import sample, get_random_multihot, get_ingredient_list_size
 
 import tensorflow as tf
 from tensorflow.python.ops.seq2seq import sequence_loss
@@ -43,25 +43,28 @@ class Text_Generator():
         Returns:
             output: List of word idxs
         """
-        state = self.model.initial_state.eval()
+        state = self.model.initial_cell_state.eval()
+
 
         # Imagine tokens as a batch size of one, length of len(tokens[0])
         tokens = [self.model.vocab.encode(word) for word in starting_text.split()]
         #pad_token = self.model.vocab.word_to_index[self.model.vocab.unknown]
         #inputs = [tokens[-config.num_steps:]] if len(tokens)>config.num_steps else [(config.num_steps-len(tokens))*[pad_token]+tokens]
         num = self.config.num_steps
-        print('num:',num)
+
+        ing_list_size = get_ingredient_list_size(self.config.ingredients_data)
         # print('inputs:',inputs,[self.model.vocab.decode(widx) for widx in inputs[0]])
         
         for i in xrange(stop_length):
             inputs = [tokens[-num:]]
             feed_dict = {
-                self.model.input_placeholder : inputs,
+                self.model.rnn_input_placeholder : inputs,
+                self.model.ingredient_placeholder: np.array(get_random_multihot(ing_list_size, self.model.vocab)),
                 self.model.dropout_placeholder : self.config.dropout,
-                self.model.initial_state : state
+                self.model.initial_cell_state : state
             }
 
-            state, y_pred = session.run([self.model.final_state, self.model.predictions[-1]], feed_dict = feed_dict)
+            state, y_pred = session.run([self.model.final_cell_state, self.model.predictions[-1]], feed_dict = feed_dict)
             #print y_pred.shape # (1, len(vocab)), so the shape of y_pred[0] is (len(vocab),)
             next_word_idx = sample(y_pred[0], temperature=temp)
             tokens.append(next_word_idx)

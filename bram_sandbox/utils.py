@@ -39,9 +39,12 @@ class Vocab(object):
 
 class Recipe():
     def __init__(self, number_of_steps, multihot=None, words=None):
-        if multihot is None:
+        if words is None:
             self.sequences_x = []
             self.sequences_y = []
+            self.number_of_steps = number_of_steps
+            self.multihot = multihot
+            self.words = None
         else:
             self.multihot = multihot
             self.words = words
@@ -62,10 +65,9 @@ class Recipe():
         padding_size = number_of_steps - (len(self.words) % number_of_steps)
 
         words = np.concatenate((self.words, np.zeros([padding_size + 1])), axis=0)
-
         # Create two sequences with a 1 index difference
-        self.sequences_x = np.split(words[:-1], number_of_steps)
-        self.sequences_y = np.split(words[1:], number_of_steps)
+        self.sequences_x = split(words[:-1], number_of_steps)
+        self.sequences_y = split(words[1:], number_of_steps)
 
     """
     Get the actual amount of sequences of length "number_of_steps" of this recipe
@@ -79,8 +81,8 @@ class Recipe():
     "number_of_steps" is returned if the index is out of range.
     """
     def get_sequence_i(self, index):
-        if index >= (self.sequences_x):
-            return np.zeros(number_of_steps), np.zeros(number_of_steps)
+        if index >= len(self.sequences_x):
+            return np.zeros(self.number_of_steps), np.zeros(self.number_of_steps)
         else:
             return self.sequences_x[index], self.sequences_y[index]
 
@@ -105,12 +107,12 @@ class RecipeBatch():
         batch_x = []
         batch_y = []
 
-        for recipe in recipes:
+        for recipe in self.recipes:
             x, y = recipe.get_sequence_i(index)
             batch_x.append(x)
             batch_y.append(y)
         
-        return (batch_x, batch_y)
+        return batch_x, batch_y
 
     """
     Retrieve an array with all multihots of all sequences in this batch
@@ -118,7 +120,7 @@ class RecipeBatch():
     def get_all_multihots(self):
         multihots = []
 
-        for recipe in recipes:
+        for recipe in self.recipes:
             multihots.append(recipe.get_multihot())
 
         return multihots
@@ -152,6 +154,17 @@ def get_multi_hot(ingredients, ingredient_list):
 def get_ingredient_list_size(dict_fn):
     return len(load_pickle_to_dict(dict_fn))    
 
+
+def get_random_multihot(ingredient_list_size, vocab):
+    multi_hot = np.zeros((1, ingredient_list_size))
+    multi_hot[0][0] = 1
+    multi_hot[0][44] = 1
+    multi_hot[0][643] = 1
+    multi_hot[0][1234] = 1
+    multi_hot[0][432] = 1
+    print (vocab.decode(0), vocab.decode(44), vocab.decode(643), vocab.decode(1234), vocab.decode(432))
+    return multi_hot
+
 """
 Yield all words in a dataset
 """
@@ -171,6 +184,7 @@ Retrieve that dataset as a list of Recipe batches.
 """
 def get_dataset(fn, dict_fn, vocab, number_of_steps, batch_size):
     ingredient_list = load_pickle_to_dict(dict_fn)
+    multihot_size = len(ingredient_list)
     recipes = []
     with open(fn) as recipe_file:    
         recipes_json = json.load(recipe_file)
@@ -186,22 +200,22 @@ def get_dataset(fn, dict_fn, vocab, number_of_steps, batch_size):
 
     # Create batches of recipes to later iterate
     recipe_batches = [batch for batch in
-                      recipe_iterator(recipes, batch_size, number_of_steps)]
+                      recipe_iterator(recipes, batch_size, number_of_steps, multihot_size)]
 
     return recipe_batches
 
 """
 Iterate over all given recipes and yield batches of recipes in a RecipeBatch object
 """
-def recipe_iterator(recipes, batch_size, number_of_steps):
+def recipe_iterator(recipes, batch_size, number_of_steps, multihot_size):
     padding_size = batch_size - (len(recipes) % batch_size)
-
+    multihot_placeholder = np.zeros(multihot_size)
     # pad the recipes with empty recipes
     for i in range(padding_size):
-        recipes.append(Recipe(number_of_steps))
+        recipes.append(Recipe(number_of_steps, multihot_placeholder))
     
     # Create batches for each set of reripces
-    for recipes in np.split(np.asarray(recipes), batch_size):
+    for recipes in split(np.asarray(recipes), batch_size):
         yield RecipeBatch(recipes)
 
 """
@@ -228,3 +242,5 @@ def sample(a, temperature=1.0):
         return np.argmax(np.random.multinomial(1, a, 1))
 
 
+def split(data, n_steps):
+    return [data[y:y+n_steps] for y in xrange(0, len(data), n_steps)]
