@@ -2,6 +2,7 @@ from collections import defaultdict
 
 import numpy as np
 import json
+import random
 import pickle
 
 class Vocab(object):
@@ -30,6 +31,13 @@ class Vocab(object):
         if word not in self.word_to_index:
             word = self.unknown
         return self.word_to_index[word]
+
+    def encode_list(self, list):
+        encoded = []
+        for word in list:
+            encoded.append({word: self.encode(word)})
+
+        return encoded
 
     def decode(self, index):
         return self.index_to_word[index]
@@ -139,17 +147,7 @@ def calculate_perplexity(log_probs):
         perp += -p
     return np.exp(perp / len(log_probs))
 
-"""
-Return a multihot list based on the ingredient_list of a recipe
-"""
-def get_multi_hot(ingredients, ingredient_list):
-    multi_hot = np.zeros(len(ingredient_list))
 
-    # Set all the multihot indecies to 1 of existing ingredients.
-    for ingredient in ingredients:
-        multi_hot[ingredient.values()[0]] = 1
-
-    return multi_hot
 
 def get_ingredient_list_size(dict_fn):
     return len(load_pickle_to_dict(dict_fn))    
@@ -157,12 +155,12 @@ def get_ingredient_list_size(dict_fn):
 
 def get_random_multihot(ingredient_list_size, vocab):
     multi_hot = np.zeros((1, ingredient_list_size))
-    multi_hot[0][0] = 1
-    multi_hot[0][44] = 1
-    multi_hot[0][643] = 1
-    multi_hot[0][1234] = 1
-    multi_hot[0][432] = 1
-    print (vocab.decode(0), vocab.decode(44), vocab.decode(643), vocab.decode(1234), vocab.decode(432))
+
+    indices = random.sample(range(ingredient_list_size), 15)
+    for i in indices:
+        print i
+        multi_hot[0][i] = 1
+
     return multi_hot
 
 """
@@ -203,6 +201,19 @@ def get_dataset(fn, dict_fn, vocab, number_of_steps, batch_size):
                       recipe_iterator(recipes, batch_size, number_of_steps, multihot_size)]
 
     return recipe_batches
+
+"""
+Return a multihot list based on the ingredient_list of a recipe
+"""
+def get_multi_hot(ingredients, ingredient_list):
+    multi_hot = np.zeros((len(ingredient_list)))
+
+    # Set all the multihot indecies to 1 of existing ingredients.
+    for ingredient in ingredients:
+        multi_hot[ingredient.values()[0]] = 1
+
+
+    return multi_hot
 
 """
 Iterate over all given recipes and yield batches of recipes in a RecipeBatch object

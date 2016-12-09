@@ -14,11 +14,11 @@ Please set the
 
 class Config(object):
     # Train and/or generate the model when running the script
-    train = True
+    train = False
     generate = True 
 
     # Learning parameters
-    batch_size = 10
+    batch_size = 200
     embed_size = 5
     hidden_size = 50
     ingredient_hidden_size = 30
@@ -62,11 +62,13 @@ def main():
 
     # We create the training model and generative model
     with tf.variable_scope('RNNLM') as scope:
-          rnn_model = RNNLM_Model(config)
+        # if config.train:
+        rnn_model = RNNLM_Model(config)
 
-          # This instructs gen_model to reuse the same variables as the model above
-          scope.reuse_variables()
-          gen_model = RNNLM_Model(gen_config)
+        # if config.generate:
+        # This instructs gen_model to reuse the same variables as the model above
+        scope.reuse_variables()
+        gen_model = RNNLM_Model(gen_config)
 
     # Train the RNN model if the is set in the config
     if config.train:
@@ -76,7 +78,9 @@ def main():
     if config.generate:
         generator = Text_Generator(gen_config, gen_model)
 
-        generator.generate_from("preheat the oven to")
+        start_text = "preheat"
+        ingredients = ["chicken", "wrap", "salt", "pepper", "tomato"]
+        generator.generate_from(start_text, gen_model.vocab.encode_list(ingredients))
 
 
 if __name__=="__main__":

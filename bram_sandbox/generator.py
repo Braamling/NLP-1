@@ -2,10 +2,11 @@ import sys
 import time
 
 import numpy as np
+import json
 from copy import deepcopy
 
-from utils import calculate_perplexity, get_dataset, Vocab
-from utils import sample, get_random_multihot, get_ingredient_list_size
+from utils import calculate_perplexity, get_dataset, Vocab, get_multi_hot
+from utils import sample, get_random_multihot, load_pickle_to_dict
 
 import tensorflow as tf
 from tensorflow.python.ops.seq2seq import sequence_loss
@@ -16,7 +17,15 @@ class Text_Generator():
         self.config = config
         self.model = gen_model
 
-    def generate_from(self, starting_text):
+        with open('config.json') as data_file:    
+            config = json.load(data_file)
+
+        self.session_name = config['session_name']
+        self.store_location = config['store_location']
+
+
+
+    def generate_from(self, starting_text, ingredients):
         init = tf.initialize_all_variables()
         saver = tf.train.Saver()
 
@@ -24,16 +33,17 @@ class Text_Generator():
         with tf.Session() as session:  
 
             # Retrieved configured session.         
-            saver.restore(session, self.config.session_name)
+            saver.restore(session, self.store_location)
 
             while starting_text:
                 print ' '.join(self.generate_sentence(
-                        session, starting_text=starting_text, temp=1.0))
+                        session, starting_text=starting_text, 
+                        ingredients=ingredients, temp=1.0))
                 starting_text = raw_input('> ')
 
 
     def generate_text(self, session, starting_text='<endofrecipe>',
-                      stop_length=100, stop_tokens=None, temp=1.0):
+                      ingredients=["<unk>"], stop_length=100, stop_tokens=None, temp=1.0):
         """Generate text from the model.
         Args:
             session: tf.Session() object
@@ -52,14 +62,16 @@ class Text_Generator():
         #inputs = [tokens[-config.num_steps:]] if len(tokens)>config.num_steps else [(config.num_steps-len(tokens))*[pad_token]+tokens]
         num = self.config.num_steps
 
-        ing_list_size = get_ingredient_list_size(self.config.ingredients_data)
+        ing_list = load_pickle_to_dict(self.config.ingredients_data)
+        ingredients = get_multi_hot(ingredients, ing_list)
+        ingredients = ingredients.reshape(1, len(ingredients))
         # print('inputs:',inputs,[self.model.vocab.decode(widx) for widx in inputs[0]])
         
         for i in xrange(stop_length):
             inputs = [tokens[-num:]]
             feed_dict = {
                 self.model.rnn_input_placeholder : inputs,
-                self.model.ingredient_placeholder: np.array(get_random_multihot(ing_list_size, self.model.vocab)),
+                self.model.ingredient_placeholder: ingredients,
                 self.model.dropout_placeholder : self.config.dropout,
                 self.model.initial_cell_state : state
             }
