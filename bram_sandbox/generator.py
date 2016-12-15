@@ -91,8 +91,8 @@ class Text_Generator():
             if stop_tokens and self.model.vocab.decode(tokens[-1]) in stop_tokens:
                 break
 
-        print('i:',i)
         output = [self.model.vocab.decode(word_idx) for word_idx in tokens]
+
         return output
 
     def generate_sentence(self, session, *args, **kwargs):

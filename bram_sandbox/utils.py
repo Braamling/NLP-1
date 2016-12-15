@@ -185,6 +185,7 @@ Retrieve that dataset as a list of Recipe batches.
 def get_dataset(fn, dict_fn, vocab, number_of_steps, batch_size):
     ingredient_list = load_pickle_to_dict(dict_fn)
     multihot_size = len(ingredient_list)
+    # print ingredient_list
     recipes = []
     with open(fn) as recipe_file:    
         recipes_json = json.load(recipe_file)
@@ -194,8 +195,8 @@ def get_dataset(fn, dict_fn, vocab, number_of_steps, batch_size):
         for recipe in recipes_json:
 
             ingredient_multi_hot = get_multi_hot(recipe['ingredients'], ingredient_list)
-            for ingredient in recipe['ingredients']:
-                total_ingredients[ingredient.keys()[0]] = ingredient.values()[0]
+            # for ingredient in recipe['ingredients']:
+                # total_ingredients[ingredient.keys()[0]] = ingredient.values()[0]
             # Create one hot vectors for each word in the recipe 
             recipe = [vocab.encode(word) for word in yield_words(recipe['steps'])]
             recipe = np.array(recipe)
@@ -203,7 +204,7 @@ def get_dataset(fn, dict_fn, vocab, number_of_steps, batch_size):
 
     # print total_ingredients
 
-    pickle.dump( total_ingredients, open( "list_of_foods.p", "wb" ) )
+    # pickle.dump( total_ingredients, open( "list_of_foods.p", "wb" ) )
 
     # Create batches of recipes to later iterate
     recipe_batches = [batch for batch in
@@ -219,13 +220,17 @@ def get_multi_hot(ingredients, ingredient_list):
 
     # Set all the multihot indecies to 1 of existing ingredients.
     for ingredient in ingredients:
-        multi_hot[ingredient.values()[0]] = 1
+        ingredient = ingredient.keys()[0]
+        # print ingredient.keys()
+        if ingredient in ingredient_list:
+            # print ingredient
+            multi_hot[ingredient_list[ingredient]] = 1
 
 
     return multi_hot
 
 def get_ingredients(multihot, ingredient_list):
-    indices = np.where(multihot == 1)[0]
+    indices = np.where(multihot > 0)[0]
     ingredients = [ingredient_list[x] for x in indices]
 
     return ingredients
