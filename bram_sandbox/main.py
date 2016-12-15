@@ -14,7 +14,7 @@ Please set the
 
 class Config(object):
     # Train and/or generate the model when running the script
-    train = False
+    train = True
     generate = True 
 
     # Learning parameters
@@ -79,8 +79,8 @@ def main():
         generator = Text_Generator(gen_config, gen_model)
 
         start_text = "preheat"
-        ingredients = ["chicken", "wrap", "salt", "pepper", "tomato"]
-        generator.generate_from(start_text, gen_model.vocab.encode_list(ingredients))
+        ingredients = ["chicken", "wrap", "tomato", "cheese", "pizza"]
+        generator.generate_from(start_text, ingredients, gen_model.vocab)
 
 
 if __name__=="__main__":
