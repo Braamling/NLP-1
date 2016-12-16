@@ -59,8 +59,8 @@ class Text_Generator():
         Returns:
             output: List of word idxs
         """
-        hidden_state = self.model.initial_hidden_state
-        cell_state = self.model.initial_cell_state
+        hidden_state = self.model.initial_hidden_state.eval()
+        cell_state = self.model.initial_cell_state.eval()
 
         # Imagine tokens as a batch size of one, length of len(tokens[0])
         tokens = [self.model.vocab.encode(word) for word in starting_text.split()]
@@ -83,10 +83,10 @@ class Text_Generator():
                 feed_dict = {
                     self.model.rnn_input_placeholder : inputs,
                     self.model.dropout_placeholder : self.config.dropout,
-                    self.model.initial_cell_state: np.array(pca_ingredient),
-                    self.model.initial_hidden_state: hidden_state,
+                    self.model.initial_cell_state: np.array([pca_ingredient]),
+                    self.model.initial_hidden_state: hidden_state
                 }
-                cell_state, hidden_state, y_pred = session.run([self.model.final_cell_state, self.model.final_hidden_state, self.model.predictions[-1]], feed_dict = feed_dict)
+                y_pred, hidden_state, cell_state = session.run([self.model.predictions[-1], self.model.final_hidden_state, self.model.final_cell_state], feed_dict = feed_dict)
             else:
                 feed_dict = {
                     self.model.rnn_input_placeholder : inputs,
