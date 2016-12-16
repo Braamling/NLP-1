@@ -4,7 +4,8 @@ import tensorflow as tf
 
 from utils import get_dataset, Vocab, get_words_from_dataset, get_ingredients
 from utils import load_pickle_to_dict
-from rnn_model import RNNLM_Model
+from rnn_model_word2vec import Word2VecLSTM
+from rnn_model_embedding import EmbeddingLSTM
 from generator import Text_Generator
 
 from collections import Counter
@@ -20,6 +21,7 @@ class Config(object):
     # Train and/or generate the model when running the script
     train = False
     generate = True 
+    use_word2vec = True
 
     # Learning parameters
     batch_size = 200
@@ -54,7 +56,7 @@ class Config(object):
         self.session_name = config['session_name']
         self.store_location = config['store_location']
 
-def generate_from(generator, starting_text, multihot, gen_model, ingredient_list):
+def generate_from(generator, starting_text, multihot, pca, gen_model, ingredient_list):
     init = tf.initialize_all_variables()
     saver = tf.train.Saver()
 
@@ -77,7 +79,7 @@ def generate_from(generator, starting_text, multihot, gen_model, ingredient_list
         # for i in range(1000):
         generated_text = (' '.join(generator.generate_sentence(
                 session, starting_text=starting_text, 
-                temp=1.0, multi_hot=multihot)))
+                temp=1.0, multi_hot=multihot, pca_ingredient=pca)))
 
         total_count = 0
         ingredients_count = 0.0
@@ -114,12 +116,18 @@ def main():
     # We create the training model and generative model
     with tf.variable_scope('RNNLM') as scope:
         # if config.train:
-        rnn_model = RNNLM_Model(config)
+        if config.use_word2vec:
+            lstm_model = Word2VecLSTM(config)
+        else:
+            lstm_model = EmbeddingLSTM(config)
 
         # if config.generate:
         # This instructs gen_model to reuse the same variables as the model above
         scope.reuse_variables()
-        gen_model = RNNLM_Model(gen_config)
+        if config.use_word2vec:
+            gen_model = Word2VecLSTM(gen_config)
+        else:
+            gen_model = EmbeddingLSTM(gen_config)
 
     # Generate text based on the passed word.
     generator = Text_Generator(gen_config, gen_model)
@@ -141,7 +149,7 @@ def main():
     for batch in encoded_test: 
         for recipe in batch.get_all_recipes():
             start_text = vocab.decode(recipe.get_sequence_i(0)[0][0])
-            result = generate_from(generator, start_text, recipe.get_multihot(), gen_model, ingredient_list)
+            result = generate_from(generator, start_text, recipe.get_multihot(), recipe.get_pca(), gen_model, ingredient_list)
             total["count"] += result["count"]
             total["generated"] += 1.0
             total["percentage"] += result["percentage"]

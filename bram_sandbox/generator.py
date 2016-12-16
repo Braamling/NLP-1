@@ -49,7 +49,7 @@ class Text_Generator():
 
 
     def generate_text(self, session, starting_text ='<endofrecipe>',
-                      ingredients = ["<unk>"], stop_length = 100, stop_tokens = None, temp = 1.0, multi_hot = None):
+                      ingredients = ["<unk>"], stop_length = 100, stop_tokens = None, temp = 1.0, multi_hot = None, pca_ingredient=None):
         """Generate text from the model.
         Args:
             session: tf.Session() object
@@ -82,10 +82,9 @@ class Text_Generator():
             if self.config.use_word2vec:
                 feed_dict = {
                     self.model.rnn_input_placeholder : inputs,
-                    self.model.ingredient_placeholder: ingredients,
                     self.model.dropout_placeholder : self.config.dropout,
-                    self.initial_cell_state: pca_ingredient,
-                    self.initial_hidden_state: hidden_state,
+                    self.model.initial_cell_state: pca_ingredient,
+                    self.model.initial_hidden_state: hidden_state,
                     self.model.initial_cell_state : cell_state
                 }
                 cell_state, hidden_state, y_pred = session.run([self.model.final_cell_state, self.model.final_hidden_state, self.model.predictions[-1]], feed_dict = feed_dict)
