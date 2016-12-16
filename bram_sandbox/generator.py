@@ -25,25 +25,31 @@ class Text_Generator():
 
 
 
-    def generate_from(self, starting_text, ingredients):
+    def generate_from(self, starting_text, ingredients, vocab):
         init = tf.initialize_all_variables()
         saver = tf.train.Saver()
 
+
         # Open session and generate text
-        with tf.Session() as session:  
+        with tf.Session() as session: 
+
 
             # Retrieved configured session.         
             saver.restore(session, self.store_location)
 
             while starting_text:
+                ingredients = vocab.encode_list(ingredients)
+
                 print ' '.join(self.generate_sentence(
                         session, starting_text=starting_text, 
                         ingredients=ingredients, temp=1.0))
-                starting_text = raw_input('> ')
+                starting_text = raw_input('start text> ')
+                ingredients = raw_input('ingredents (, )> ')
+                ingredients = ingredients.split(', ')
 
 
     def generate_text(self, session, starting_text='<endofrecipe>',
-                      ingredients=["<unk>"], stop_length=100, stop_tokens=None, temp=1.0):
+                      ingredients=["<unk>"], stop_length=100, stop_tokens=None, temp=1.0, multi_hot=None):
         """Generate text from the model.
         Args:
             session: tf.Session() object
@@ -62,9 +68,12 @@ class Text_Generator():
         #inputs = [tokens[-config.num_steps:]] if len(tokens)>config.num_steps else [(config.num_steps-len(tokens))*[pad_token]+tokens]
         num = self.config.num_steps
 
-        ing_list = load_pickle_to_dict(self.config.ingredients_data)
-        ingredients = get_multi_hot(ingredients, ing_list)
-        ingredients = ingredients.reshape(1, len(ingredients))
+        if multi_hot is None:
+            ing_list = load_pickle_to_dict(self.config.ingredients_data)
+            ingredients = get_multi_hot(ingredients, ing_list)
+            ingredients = ingredients.reshape(1, len(ingredients))
+        else:
+            ingredients = multi_hot.reshape(1, len(multi_hot))
         # print('inputs:',inputs,[self.model.vocab.decode(widx) for widx in inputs[0]])
         
         for i in xrange(stop_length):

@@ -122,6 +122,9 @@ class RecipeBatch():
         
         return batch_x, batch_y
 
+    def get_all_recipes(self):
+        return self.recipes
+
     """
     Retrieve an array with all multihots of all sequences in this batch
     """
@@ -158,7 +161,6 @@ def get_random_multihot(ingredient_list_size, vocab):
 
     indices = random.sample(range(ingredient_list_size), 15)
     for i in indices:
-        print i
         multi_hot[0][i] = 1
 
     return multi_hot
@@ -186,15 +188,22 @@ def get_dataset(fn, dict_fn, vocab, number_of_steps, batch_size):
     recipes = []
     with open(fn) as recipe_file:    
         recipes_json = json.load(recipe_file)
+        total_ingredients = {}
 
         # Create a recipe object for each recipe.
         for recipe in recipes_json:
-            ingredient_multi_hot = get_multi_hot(recipe['ingredients'], ingredient_list)
 
+            ingredient_multi_hot = get_multi_hot(recipe['ingredients'], ingredient_list)
+            for ingredient in recipe['ingredients']:
+                total_ingredients[ingredient.keys()[0]] = ingredient.values()[0]
             # Create one hot vectors for each word in the recipe 
             recipe = [vocab.encode(word) for word in yield_words(recipe['steps'])]
             recipe = np.array(recipe)
             recipes.append(Recipe(number_of_steps, ingredient_multi_hot, recipe))
+
+    # print total_ingredients
+
+    pickle.dump( total_ingredients, open( "list_of_foods.p", "wb" ) )
 
     # Create batches of recipes to later iterate
     recipe_batches = [batch for batch in
@@ -215,6 +224,11 @@ def get_multi_hot(ingredients, ingredient_list):
 
     return multi_hot
 
+def get_ingredients(multihot, ingredient_list):
+    indices = np.where(multihot == 1)[0]
+    ingredients = [ingredient_list[x] for x in indices]
+
+    return ingredients
 """
 Iterate over all given recipes and yield batches of recipes in a RecipeBatch object
 """
