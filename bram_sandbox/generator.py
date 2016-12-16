@@ -75,7 +75,6 @@ class Text_Generator():
                 self.model.dropout_placeholder : self.config.dropout,
                 self.model.initial_cell_state : state
             }
-
             state, y_pred = session.run([self.model.final_cell_state, self.model.predictions[-1]], feed_dict = feed_dict)
             #print y_pred.shape # (1, len(vocab)), so the shape of y_pred[0] is (len(vocab),)
             next_word_idx = sample(y_pred[0], temperature=temp)

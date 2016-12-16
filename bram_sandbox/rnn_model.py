@@ -19,10 +19,10 @@ class RNNLM_Model():
         self.load_data(debug=False)
         self.add_placeholders()
 
-        self.initial_cell_state = tf.zeros([self.config.batch_size, self.config.hidden_size])
+        self.initial_hidden_state = tf.zeros([self.config.batch_size, self.config.hidden_size])
 
         rnn_inputs = self.add_embedding()
-        self.initial_hidden_state = self.add_ingredient_nn()
+        self.initial_cell_state = self.add_ingredient_nn()
         rnn_outputs = self.add_rnn_model(rnn_inputs)
         self.outputs = self.add_projection(rnn_outputs)
 
@@ -179,7 +179,7 @@ class RNNLM_Model():
                 output = tf.nn.dropout(hidden_state, self.dropout_placeholder)
                 rnn_outputs.append(output)
 
-        self.final_cell_state = cell_state
+        self.final_hidden_state = hidden_state
 
         return rnn_outputs
 
@@ -220,30 +220,30 @@ class RNNLM_Model():
 
                 print 'Total time: {}'.format(time.time() - start)
 
-    def run_epoch(self, session, recipe_batch_list, train_op=None, verbose=10):
+    def run_epoch(self, session, recipe_batch_list, train_op=None, verbose=1):
 
         total_loss = []
-        for recipe_batch in recipe_batch_list:
+        for batch_step, recipe_batch in enumerate(recipe_batch_list):
 
-            cell_state = self.initial_cell_state.eval()
+            # hidden_state = self.initial_hidden_state.eval()
             dp = self.config.dropout
             if not train_op:
                 train_op = tf.no_op()
                 dp = 1
 
-            for batch_step in range(recipe_batch.get_max_sequence_size()):
-                rnn_input_x, rnn_input_y = recipe_batch.get_all_sequence_i(batch_step)
+            for sequence_step in range(recipe_batch.get_max_sequence_size()):
+                rnn_input_x, rnn_input_y = recipe_batch.get_all_sequence_i(sequence_step)
                 feed = {self.rnn_input_placeholder: np.array(rnn_input_x),
                         self.rnn_labels_placeholder: np.array(rnn_input_y),
                         self.ingredient_placeholder: np.array(recipe_batch.get_all_multihots()),
-                        self.initial_cell_state: np.zeros((self.config.batch_size, self.config.hidden_size)) if batch_step == 0 else cell_state, #TODO try for understanding tf.zeros([self.config.batch_size, self.config.hidden_size])
+                        self.initial_hidden_state: np.zeros((self.config.batch_size, self.config.hidden_size)) if sequence_step == 0 else hidden_state,  #TODO try for understanding tf.zeros([self.config.batch_size, self.config.hidden_size])
                         self.dropout_placeholder: dp}
-                loss, cell_state, _ = session.run(
-                            [self.calculate_loss, self.final_cell_state, train_op], feed_dict=feed)
+                loss, hidden_state, _ = session.run(
+                            [self.calculate_loss, self.final_hidden_state, train_op], feed_dict=feed)
                 total_loss.append(loss)
-                if verbose and batch_step % verbose == 0:
-                   sys.stdout.write('\r{} / {} : pp = {}'.format(batch_step, recipe_batch.get_max_sequence_size(), np.exp(np.mean(total_loss))))
-                   sys.stdout.flush()
+            if verbose and batch_step % verbose == 0:
+               sys.stdout.write('\r{} / {} : pp = {}'.format(batch_step, len(recipe_batch_list), np.exp(np.mean(total_loss))))
+               sys.stdout.flush()
 
             if verbose:
                 sys.stdout.write('\r')

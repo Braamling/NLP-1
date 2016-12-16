@@ -14,11 +14,11 @@ Please set the
 
 class Config(object):
     # Train and/or generate the model when running the script
-    train = False
+    train = True
     generate = True 
 
     # Learning parameters
-    batch_size = 200
+    batch_size = 40
     embed_size = 5
     hidden_size = 50
     ingredient_hidden_size = 30
