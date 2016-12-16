@@ -46,16 +46,18 @@ class Vocab(object):
         return len(self.word_freq)
 
 class Recipe():
-    def __init__(self, number_of_steps, multihot=None, words=None):
+    def __init__(self, number_of_steps, multihot=None, words=None, pca=None):
         if words is None:
             self.sequences_x = []
             self.sequences_y = []
             self.number_of_steps = number_of_steps
             self.multihot = multihot
+            self.pca = pca
             self.words = None
         else:
             self.multihot = multihot
             self.words = words
+            self.pca = np.asarray(pca)
             self.number_of_steps = number_of_steps
             self.create_sequences(number_of_steps)
 
@@ -64,6 +66,12 @@ class Recipe():
     """
     def get_multihot(self):
         return self.multihot
+
+    """
+    Get the 50 pca concatinated ingredient list
+    """
+    def get_pca(self):
+        return self.pca
 
     """
     Create the sequences of length "number_of_steps" and pad the last one with
@@ -137,6 +145,17 @@ class RecipeBatch():
         return multihots
 
     """
+    Retrieve an array with all multihots of all sequences in this batch
+    """
+    def get_all_pcas(self):
+        pcas = []
+
+        for recipe in self.recipes:
+            pcas.append(recipe.get_pca())
+
+        return pcas
+
+    """
     Get the largest sequence size in this batch
     """
     def get_max_sequence_size(self):
@@ -185,6 +204,7 @@ Retrieve that dataset as a list of Recipe batches.
 def get_dataset(fn, dict_fn, vocab, number_of_steps, batch_size):
     ingredient_list = load_pickle_to_dict(dict_fn)
     multihot_size = len(ingredient_list)
+    # print ingredient_list
     recipes = []
     with open(fn) as recipe_file:    
         recipes_json = json.load(recipe_file)
@@ -194,16 +214,17 @@ def get_dataset(fn, dict_fn, vocab, number_of_steps, batch_size):
         for recipe in recipes_json:
 
             ingredient_multi_hot = get_multi_hot(recipe['ingredients'], ingredient_list)
-            for ingredient in recipe['ingredients']:
-                total_ingredients[ingredient.keys()[0]] = ingredient.values()[0]
+            pca = recipe['pca']
+            # for ingredient in recipe['ingredients']:
+                # total_ingredients[ingredient.keys()[0]] = ingredient.values()[0]
             # Create one hot vectors for each word in the recipe 
             recipe = [vocab.encode(word) for word in yield_words(recipe['steps'])]
             recipe = np.array(recipe)
-            recipes.append(Recipe(number_of_steps, ingredient_multi_hot, recipe))
+            recipes.append(Recipe(number_of_steps, ingredient_multi_hot, recipe, pca))
 
     # print total_ingredients
 
-    pickle.dump( total_ingredients, open( "list_of_foods.p", "wb" ) )
+    # pickle.dump( total_ingredients, open( "list_of_foods.p", "wb" ) )
 
     # Create batches of recipes to later iterate
     recipe_batches = [batch for batch in
@@ -219,13 +240,17 @@ def get_multi_hot(ingredients, ingredient_list):
 
     # Set all the multihot indecies to 1 of existing ingredients.
     for ingredient in ingredients:
-        multi_hot[ingredient.values()[0]] = 1
+        ingredient = ingredient.keys()[0]
+        # print ingredient.keys()
+        if ingredient in ingredient_list:
+            # print ingredient
+            multi_hot[ingredient_list[ingredient]] = 1
 
 
     return multi_hot
 
 def get_ingredients(multihot, ingredient_list):
-    indices = np.where(multihot == 1)[0]
+    indices = np.where(multihot > 0)[0]
     ingredients = [ingredient_list[x] for x in indices]
 
     return ingredients

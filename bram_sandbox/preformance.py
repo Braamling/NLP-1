@@ -68,7 +68,10 @@ def generate_from(generator, starting_text, multihot, gen_model, ingredient_list
         no_pizza = ""
 
         # ingredients = ["pizza"]
+        # print ingredient_list
+
         ingredients = get_ingredients(multihot, ingredient_list)
+        # print ingredients
 
         # ingredients = gen_model.vocab.encode_list(ingredients)
         # for i in range(1000):
@@ -131,14 +134,23 @@ def main():
                                      config.num_steps,
                                      config.batch_size)]
 
-    # start_text = "preheat"
-    # ingredients = ["pizza"]
     results = []
+
+    total = {"count": 0, "percentage": 0.0, "generated": 0.0}
 
     for batch in encoded_test: 
         for recipe in batch.get_all_recipes():
             start_text = vocab.decode(recipe.get_sequence_i(0)[0][0])
-            results = generate_from(generator, start_text, recipe.get_multihot(), gen_model, ingredient_list)
+            result = generate_from(generator, start_text, recipe.get_multihot(), gen_model, ingredient_list)
+            total["count"] += result["count"]
+            total["generated"] += 1.0
+            total["percentage"] += result["percentage"]
+            results.append(result)
+            print "++++++ Average percentage: " + str(total["percentage"]/total["generated"]) + "+++++++"
+
+    results.append(total)
+
+    
 
 if __name__=="__main__":
     main()
