@@ -2,7 +2,7 @@ from copy import deepcopy
 
 import tensorflow as tf
 
-from rnn_model import RNNLM_Model
+from rnn_model_word2vec import Word2VecLSTM
 from generator import Text_Generator
 
 import json
@@ -63,16 +63,16 @@ def main():
     # We create the training model and generative model
     with tf.variable_scope('RNNLM') as scope:
         # if config.train:
-        rnn_model = RNNLM_Model(config)
+        lstm_model = Word2VecLSTM(config)
 
         # if config.generate:
         # This instructs gen_model to reuse the same variables as the model above
         scope.reuse_variables()
-        gen_model = RNNLM_Model(gen_config)
+        gen_model = Word2VecLSTM(gen_config)
 
     # Train the RNN model if the is set in the config
     if config.train:
-        rnn_model.train()
+        lstm_model.train()
 
     # Generate text based on the passed word.
     if config.generate:
