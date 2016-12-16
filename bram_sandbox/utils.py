@@ -52,7 +52,7 @@ class Recipe():
             self.sequences_y = []
             self.number_of_steps = number_of_steps
             self.multihot = multihot
-            self.pca = pca
+            self.pca = np.zeros(50)
             self.words = None
         else:
             self.multihot = multihot
