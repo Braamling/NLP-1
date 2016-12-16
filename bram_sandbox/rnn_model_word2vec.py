@@ -18,11 +18,13 @@ class Word2VecLSTM(RNNLM_Model):
                 train_op = tf.no_op()
                 dp = 1
 
+            pca_ingredient = np.array(recipe_batch.get_all_pcas())
+            print pca_ingredient.shape
             for sequence_step in range(recipe_batch.get_max_sequence_size()):
                 rnn_input_x, rnn_input_y = recipe_batch.get_all_sequence_i(sequence_step)
                 feed = {self.rnn_input_placeholder: np.array(rnn_input_x),
                         self.rnn_labels_placeholder: np.array(rnn_input_y),
-                        self.initial_cell_state: np.zeros((self.config.batch_size, self.config.hidden_size)) if sequence_step == 0 else cell_state, #TODO
+                        self.initial_cell_state: pca_ingredient if sequence_step == 0 else cell_state, #
                         self.initial_hidden_state: np.zeros((self.config.batch_size, self.config.hidden_size)) if sequence_step == 0 else hidden_state,
                         self.dropout_placeholder: dp}
                 loss, hidden_state, cell_state, _ = session.run(

@@ -57,7 +57,7 @@ class Recipe():
         else:
             self.multihot = multihot
             self.words = words
-            self.pca = np.asarray(pca)
+            self.pca = pca[0]
             self.number_of_steps = number_of_steps
             self.create_sequences(number_of_steps)
 
