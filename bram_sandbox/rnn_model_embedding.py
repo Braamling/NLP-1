@@ -7,8 +7,8 @@ import tensorflow as tf
 
 class EmbeddingLSTM(RNNLM_Model):
 
-    def __init__(self):
-        RNNLM_Model.__init__(self)
+    def __init__(self, config):
+        RNNLM_Model.__init__(self, config)
 
     def add_additional_placeholders(self):
         self.ingredient_placeholder = tf.placeholder(tf.float32,

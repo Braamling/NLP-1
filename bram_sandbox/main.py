@@ -3,6 +3,7 @@ from copy import deepcopy
 import tensorflow as tf
 
 from rnn_model_word2vec import Word2VecLSTM
+from rnn_model_embedding import EmbeddingLSTM
 from generator import Text_Generator
 
 import json
@@ -15,7 +16,8 @@ Please set the
 class Config(object):
     # Train and/or generate the model when running the script
     train = True
-    generate = True 
+    generate = True
+    use_word2vec = True
 
     # Learning parameters
     batch_size = 40
@@ -63,12 +65,17 @@ def main():
     # We create the training model and generative model
     with tf.variable_scope('RNNLM') as scope:
         # if config.train:
-        lstm_model = Word2VecLSTM(config)
-
+        if config.use_word2vec:
+            lstm_model = Word2VecLSTM(config)
+        else:
+            lstm_model = EmbeddingLSTM(config)
         # if config.generate:
         # This instructs gen_model to reuse the same variables as the model above
         scope.reuse_variables()
-        gen_model = Word2VecLSTM(gen_config)
+        if config.use_word2vec:
+            gen_model = Word2VecLSTM(gen_config)
+        else:
+            gen_model = EmbeddingLSTM(gen_config)
 
     # Train the RNN model if the is set in the config
     if config.train:

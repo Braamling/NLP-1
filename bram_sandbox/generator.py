@@ -48,8 +48,8 @@ class Text_Generator():
                 ingredients = ingredients.split(', ')
 
 
-    def generate_text(self, session, starting_text='<endofrecipe>',
-                      ingredients=["<unk>"], stop_length=100, stop_tokens=None, temp=1.0, multi_hot=None):
+    def generate_text(self, session, starting_text ='<endofrecipe>',
+                      ingredients = ["<unk>"], stop_length = 100, stop_tokens = None, temp = 1.0, multi_hot = None):
         """Generate text from the model.
         Args:
             session: tf.Session() object
@@ -59,8 +59,8 @@ class Text_Generator():
         Returns:
             output: List of word idxs
         """
-        state = self.model.initial_cell_state.eval()
-
+        hidden_state = self.model.initial_cell_state
+        cell_state = self.model.initial_hidden_state
 
         # Imagine tokens as a batch size of one, length of len(tokens[0])
         tokens = [self.model.vocab.encode(word) for word in starting_text.split()]
@@ -78,21 +78,32 @@ class Text_Generator():
         
         for i in xrange(stop_length):
             inputs = [tokens[-num:]]
-            feed_dict = {
-                self.model.rnn_input_placeholder : inputs,
-                self.model.ingredient_placeholder: ingredients,
-                self.model.dropout_placeholder : self.config.dropout,
-                self.model.initial_cell_state : state
-            }
-            state, y_pred = session.run([self.model.final_cell_state, self.model.predictions[-1]], feed_dict = feed_dict)
-            #print y_pred.shape # (1, len(vocab)), so the shape of y_pred[0] is (len(vocab),)
+
+            if self.config.use_word2vec:
+                feed_dict = {
+                    self.model.rnn_input_placeholder : inputs,
+                    self.model.ingredient_placeholder: ingredients,
+                    self.model.dropout_placeholder : self.config.dropout,
+                    self.initial_cell_state: pca_ingredient,
+                    self.initial_hidden_state: hidden_state,
+                    self.model.initial_cell_state : cell_state
+                }
+                cell_state, hidden_state, y_pred = session.run([self.model.final_cell_state, self.model.final_hidden_state, self.model.predictions[-1]], feed_dict = feed_dict)
+            else:
+                feed_dict = {
+                    self.model.rnn_input_placeholder : inputs,
+                    self.model.ingredient_placeholder: ingredients,
+                    self.model.dropout_placeholder : self.config.dropout,
+                    self.model.initial_cell_state : state
+                }
+                state, y_pred = session.run([self.model.final_cell_state, self.model.predictions[-1]], feed_dict = feed_dict)
+
             next_word_idx = sample(y_pred[0], temperature=temp)
             tokens.append(next_word_idx)
             if stop_tokens and self.model.vocab.decode(tokens[-1]) in stop_tokens:
                 break
 
         output = [self.model.vocab.decode(word_idx) for word_idx in tokens]
-
         return output
 
     def generate_sentence(self, session, *args, **kwargs):
