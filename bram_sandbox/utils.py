@@ -46,16 +46,18 @@ class Vocab(object):
         return len(self.word_freq)
 
 class Recipe():
-    def __init__(self, number_of_steps, multihot=None, words=None):
+    def __init__(self, number_of_steps, multihot=None, words=None, pca=None):
         if words is None:
             self.sequences_x = []
             self.sequences_y = []
             self.number_of_steps = number_of_steps
             self.multihot = multihot
+            self.pca = pca
             self.words = None
         else:
             self.multihot = multihot
             self.words = words
+            self.pca = np.asarray(pca)
             self.number_of_steps = number_of_steps
             self.create_sequences(number_of_steps)
 
@@ -64,6 +66,12 @@ class Recipe():
     """
     def get_multihot(self):
         return self.multihot
+
+    """
+    Get the 50 pca concatinated ingredient list
+    """
+    def get_pca(self):
+        return self.pca
 
     """
     Create the sequences of length "number_of_steps" and pad the last one with
@@ -137,6 +145,17 @@ class RecipeBatch():
         return multihots
 
     """
+    Retrieve an array with all multihots of all sequences in this batch
+    """
+    def get_all_pcas(self):
+        pcas = []
+
+        for recipe in self.recipes:
+            pcas.append(recipe.get_pca())
+
+        return pcas
+
+    """
     Get the largest sequence size in this batch
     """
     def get_max_sequence_size(self):
@@ -195,12 +214,13 @@ def get_dataset(fn, dict_fn, vocab, number_of_steps, batch_size):
         for recipe in recipes_json:
 
             ingredient_multi_hot = get_multi_hot(recipe['ingredients'], ingredient_list)
+            pca = recipe['pca']
             # for ingredient in recipe['ingredients']:
                 # total_ingredients[ingredient.keys()[0]] = ingredient.values()[0]
             # Create one hot vectors for each word in the recipe 
             recipe = [vocab.encode(word) for word in yield_words(recipe['steps'])]
             recipe = np.array(recipe)
-            recipes.append(Recipe(number_of_steps, ingredient_multi_hot, recipe))
+            recipes.append(Recipe(number_of_steps, ingredient_multi_hot, recipe, pca))
 
     # print total_ingredients
 
