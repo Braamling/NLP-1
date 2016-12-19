@@ -196,7 +196,7 @@ def get_words_from_dataset(fn):
             for step in recipe:
                 for word in step['sentence'].split():
                     yield word
-            yield '<endofrecipe>'
+            # yield '<endofrecipe>'
 
 """
 Retrieve that dataset as a list of Recipe batches.
