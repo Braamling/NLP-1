@@ -21,12 +21,12 @@ class Config(object):
 
     # Learning parameters
     batch_size = 40
-    embed_size = 5
+    embed_size = 50
     hidden_size = 50
     ingredient_hidden_size = 30
-    num_steps = 40
-    max_epochs = 10
-    early_stopping = 2
+    num_steps = 100
+    max_epochs = 1000
+    early_stopping = 4
     dropout = 0.9
     lr = 0.005
 

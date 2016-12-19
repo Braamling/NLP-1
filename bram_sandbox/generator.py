@@ -98,8 +98,8 @@ class Text_Generator():
 
             next_word_idx = sample(y_pred[0], temperature=temp)
             tokens.append(next_word_idx)
-            if stop_tokens and self.model.vocab.decode(tokens[-1]) in stop_tokens:
-                break
+            # if stop_tokens and self.model.vocab.decode(tokens[-1]) in stop_tokens:
+            #     break
 
         output = [self.model.vocab.decode(word_idx) for word_idx in tokens]
         return output
