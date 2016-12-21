@@ -71,6 +71,7 @@ class Recipe():
     Get the 50 pca concatinated ingredient list
     """
     def get_pca(self):
+        # return np.zeros((50, ))
         return self.pca
 
     """

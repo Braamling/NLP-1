@@ -11,6 +11,7 @@ from generator import Text_Generator
 from collections import Counter
 
 import json
+import csv
 """
 Please set the 
 
@@ -46,8 +47,10 @@ class Config(object):
     ingredients_data = 'data/list_of_foods.p'
 
     # Session location and name for storing and loading stored model
-    session_name = 'ptb_rnnlm_1.weights'
-    store_location = './ptb_rnnlm_1.weights'
+    session_name = 'withPCA.weights'
+    store_location = './withPCA.weights'
+    # session_name = 'ptb_rnnlm_1.weights'
+    # store_location = './ptb_rnnlm_1.weights'
 
     def __init__(self):
         with open('config.json') as data_file:    
@@ -56,40 +59,38 @@ class Config(object):
         self.session_name = config['session_name']
         self.store_location = config['store_location']
 
-def generate_from(generator, starting_text, multihot, pca, gen_model, ingredient_list):
-    init = tf.initialize_all_variables()
-    saver = tf.train.Saver()
-
-    # Open session and generate text
-    with tf.Session() as session:  
-
-
+def generate_from(generator, starting_text, multihot, pca, gen_model, ingredient_list, session):
         # Retrieved configured session.         
-        saver.restore(session, generator.store_location)
+        
         pizza = ""
         no_pizza = ""
 
         # ingredients = ["pizza"]
         # print ingredient_list
-
+        print "2"
         ingredients = get_ingredients(multihot, ingredient_list)
         # print ingredients
 
         # ingredients = gen_model.vocab.encode_list(ingredients)
         # for i in range(1000):
+        print "3"
         generated_text = (' '.join(generator.generate_sentence(
                 session, starting_text=starting_text, 
                 temp=1.0, multi_hot=multihot, pca_ingredient=pca)))
 
         total_count = 0
         ingredients_count = 0.0
+        print "4"
         for ingredient in ingredients:
             counted = generated_text.count(ingredient)
             total_count += counted
             if counted > 0:
                 ingredients_count += 1.0
 
-        count_percentage = (ingredients_count/len(ingredients)) * 100
+        if len(ingredients) == 0:
+            count_percentage = 0.0;
+        else:
+            count_percentage = (ingredients_count/len(ingredients)) * 100
 
         print "----START----"
         print str(count_percentage) + "% of the ingredients occured " + str(total_count) + " times in the text -----"
@@ -97,7 +98,7 @@ def generate_from(generator, starting_text, multihot, pca, gen_model, ingredient
         print "Text: " + generated_text
         print "----END----"
 
-        return {"text": generated_text, "ingredients": ingredients, "count": total_count, "percentage": count_percentage}
+        return {"text": generated_text, "ingredients": ingredients, "count": total_count, "ingredients_count": ingredients_count, "percentage": count_percentage}
 
 
 
@@ -145,16 +146,26 @@ def main():
     results = []
 
     total = {"count": 0, "percentage": 0.0, "generated": 0.0}
+    init = tf.initialize_all_variables()
+    saver = tf.train.Saver()
 
-    for batch in encoded_test: 
-        for recipe in batch.get_all_recipes():
-            start_text = vocab.decode(recipe.get_sequence_i(0)[0][0])
-            result = generate_from(generator, start_text, recipe.get_multihot(), recipe.get_pca(), gen_model, ingredient_list)
-            total["count"] += result["count"]
-            total["generated"] += 1.0
-            total["percentage"] += result["percentage"]
-            results.append(result)
-            print "++++++ Average percentage: " + str(total["percentage"]/total["generated"]) + "+++++++"
+    with open(r'ingredient_inclusion.csv','a') as f:
+        writer = csv.writer(f)
+
+        # Open session and generate text
+        with tf.Session() as session: 
+            saver.restore(session, generator.store_location) 
+            for batch in encoded_test: 
+                for recipe in batch.get_all_recipes():
+                    start_text = vocab.decode(recipe.get_sequence_i(0)[0][0])
+                    result = generate_from(generator, start_text, recipe.get_multihot(), recipe.get_pca(), gen_model, ingredient_list, session)
+                    total["count"] += result["count"]
+                    total["generated"] += 1.0
+                    total["percentage"] += result["percentage"]
+                    results.append(result)
+                    writer.writerow([result["count"], result["ingredients_count"], len(result["ingredients"]), result["percentage"]])
+                    print "++++++ Average percentage: " + str(total["percentage"]/total["generated"]) +\
+                            " over " + str(total["generated"]) + "+++++++"
 
     results.append(total)
 
