@@ -30,12 +30,15 @@ class Vocab(object):
     def encode(self, word):
         if word not in self.word_to_index:
             word = self.unknown
+            # return None
         return self.word_to_index[word]
 
     def encode_list(self, list):
         encoded = []
         for word in list:
-            encoded.append({word: self.encode(word)})
+            encoded_word = self.encode(word)
+            if encoded_word is not self.unknown:
+                encoded.append({word: encoded_word})
 
         return encoded
 
@@ -196,7 +199,8 @@ def get_words_from_dataset(fn):
             recipe = recipe['steps']
             for step in recipe:
                 for word in step['sentence'].split():
-                    yield word
+                    if word is not "<unk>":
+                        yield word
             # yield '<endofrecipe>'
 
 """
