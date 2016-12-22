@@ -76,14 +76,15 @@ class Text_Generator():
             ingredients = multi_hot.reshape(1, len(multi_hot))
         # print('inputs:',inputs,[self.model.vocab.decode(widx) for widx in inputs[0]])
         
-        for i in xrange(stop_length):
+        # for i in xrange(stop_length):
+        n_words = 0
+        while n_words < stop_length:
             inputs = [tokens[-num:]]
-
             if self.config.use_word2vec:
                 feed_dict = {
                     self.model.rnn_input_placeholder : inputs,
                     self.model.dropout_placeholder : self.config.dropout,
-                    self.model.initial_cell_state: np.array([pca_ingredient]),
+                    self.model.initial_cell_state: np.tanh(np.array([pca_ingredient])) if n_words == 0 else cell_state,
                     self.model.initial_hidden_state: hidden_state
                 }
                 y_pred, hidden_state, cell_state = session.run([self.model.predictions[-1], self.model.final_hidden_state, self.model.final_cell_state], feed_dict = feed_dict)
@@ -97,7 +98,10 @@ class Text_Generator():
                 state, y_pred = session.run([self.model.final_cell_state, self.model.predictions[-1]], feed_dict = feed_dict)
 
             next_word_idx = sample(y_pred[0], temperature=temp)
-            tokens.append(next_word_idx)
+            if self.model.vocab.decode(next_word_idx) != "<unk>":
+                tokens.append(next_word_idx)
+                n_words += 1    
+
             # if stop_tokens and self.model.vocab.decode(tokens[-1]) in stop_tokens:
             #     break
 
